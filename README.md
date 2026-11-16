@@ -527,50 +527,6 @@ No, not Buffy the Vampire Slayer! .. It's simple checksum for Windows!"> <img al
 	</div>
 	<div>
 	</div>
-	<h2>download
-	</h2>
-	<p>Download and use checksum, for free..
-	</p>
-	<div>
-	</div>
-	<div>
-		<div> <a href="https://corz.org/public/machine/Windows/Software/checksum/checksum.zip?download" title="Download and use checksum, for free.."> <span>download</span>
-			<div>
-			</div> <span><img alt="Image of big cardboard box, containing the checksum package (zip), well, the image is of a parcel, with the checksum logo overlayed on one side, but you get the idea." src="https://corz.org/windows/software/checksum/img/checksum_icon_256px.png"/></span></a> <br/> <span>checksum</span>
-		</div>
-		<div>
-		</div>
-		<p><a href="https://corz.org/public/machine/Windows/Software/checksum/checksum.zip?view&amp;clean=true" title="Check out the files inside this Zip!">click to see zip archive contents</a>
-		</p>
-		<div title="click here to check out the app responsible for these fine hashes!"><strong>LIVE Hashes..</strong><br/># made with checksum.. 64-bit edition. # from corz.org.. https://corz.org/windows/software/checksum/ # #sha2#checksum.zip#2026.11.05@09.21:04 f326dba8905fa722766db8d66b74b5a3442bb0e5b082266fa9d473ae3487987e *checksum.zip
-		</div>
-	</div>
-	<div>
-	</div>
-	<div>
-		<div>
-		</div> <img src="https://corz.org/img/schimages/Windows10-Compatible-oranges.png" width="256"/>
-		<div>
-		</div>
-	</div>
-	<div>
-	</div>
-	<div>
-		<p><strong>NOTE</strong>: If your Anti-Virus software detects anything in this software, I recommend you switch to an Anti-Virus that <em>isn't</em> brain-dead. If you DO discover an actual virus, malware, trojan, or anything of that nature inside this software, please <a href="https://corz.org/corz/mail-me.php" title="Mail Me!">mail me</a>, and I will send you a cheque for a Million Pounds, as a reward. In other words, this software is clean.
-		</p>
-	</div>
-	<div>
-	</div>
-	<div title="Thanks to whoever it was that put my software up on Softpedia!">
-		<p><em><strong>These guys agree..</strong></em><br/> <small>	(note: I've now removed checksum from most of these sites!)</small>
-		</p>
-		<p> <img alt="the Softpedia 100% Clean logo" src="https://corz.org/img/windows/softpedia_clean_award_f.gif" width="170"/> <img alt="the windows 10 download logo" src="https://corz.org/img/windows/Windows_10_Download_award_5_stars.png" width="160"/> <img alt="the mad download editor's choice logo" src="https://corz.org/img/windows/maddownload_editors_choice_transparent-150x150-1.png" width="150"/> <img alt="CHECKSUM antivirus scan report at rosoftdownload.com" src="https://corz.org/img/windows/rosoftd_antivir_checksum_CLEAN.png" width="175"/> <img alt="checksum antivirus report at download3k.com" src="https://corz.org/img/windows/Download_3k_award_clean.png" width="150"/> <img alt="CHECKSUM antivirus scan report at softoxi.com" src="https://corz.org/img/windows/SoftOxi_award_5-5_CLEAN_award.png" width="120"/> <img alt="todaysoftware 100% clean award" src="https://corz.org/img/windows/todaysoftware-virus_clean.png" width="170"/> <img alt="todaysoftware 5 star Excellence award" src="https://corz.org/img/windows/todaysoftware-Award.png" width="130"/> <img alt="5 star award logo" src="https://corz.org/img/windows/BestVistaDownloads_5stars.gif" width="160"/> <img alt="bluechillies 5 star award" src="https://corz.org/img/windows/bluechillies_award5.jpg" width="130"/> <img alt="windows7download 5 star award logo" src="https://corz.org/img/windows/Windows7Downloads-rated_5.png" width="160"/> <img alt="checksum's TopShareware 100% CLEAN, of course." src="https://corz.org/img/windows/topshareware-.png" width="123"/> <img alt="checksum's TopShareware award.. 5/5" src="https://corz.org/img/windows/TopShareware5Stars.png" width="123"/> <img alt="sharewarecentral 5 star award logo" src="https://corz.org/img/windows/sharewarecentral-rate_5.gif" width="100"/> <a href="https://corz.org/windows/software/checksum/" title="another 5 stars.. yawn!"><img alt="top4download 5 star award logo" src="https://corz.org/img/windows/Top4Download-5-stars.gif" width="120"/></a> <img alt="top4download 5 star award logo" src="https://corz.org/img/windows/BS4D_rate5.png" width="130"/> <img alt="download2pc 5 thumbs up award logo" src="https://corz.org/img/windows/download2pc_award.png" width="100"/> <img alt="Shareup Networks" src="https://corz.org/img/windows/shareup_logo_5.gif" width="98"/> <a href="https://corz.org/windows/software/checksum/"><img alt="checksum at  filefishstick" src="https://corz.org/img/windows/FishFileStick.jpg"/></a> <img alt="Forte Downloads" src="https://corz.org/img/windows/fortedownloads_88x31.png" width="88"/>
-		</p>
-		<p><em><strong>(Ahh.. The beauty of PAD Files!)</strong></em>
-		</p>
-	</div>
-	<div>
-	</div>
 	<h2>Itstory..<br/> <small>aka. 'version info', aka. 'changes'..</small>
 	</h2>
 	<p>This is usually bang-up-to-date, and will keep you informed if you are messing around with the latest beta, and let you know what's coming up next. Note: it was getting a bit long to include here in the main page, so now there's a link to the original document, instead..
