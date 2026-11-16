@@ -64,7 +64,9 @@
 	</p>
 	<p>The options dialog is most useful when you want to only hash certain files in a folder, like mp3's, or movies. With your file mask groups, you can configure file-type specific hashing with just a couple of clicks.
 	</p>
-	<p><a href="https://corz.org/windows/software/checksum/checksum-tricks.php#section-Launch_Modifiers" title="checksum's one-shot options dialog. file type group selector."><img alt="checksum creation options dialog, file types group drop-down, regular Windows masks apply" src="https://corz.org/windows/software/checksum/img/checksum_options_filetype_groups.webp"/></a>Common music, video, and archive formats come setup and ready to go, and you can easily edit or add to these at any time.
+	<p><a href="https://corz.org/windows/software/checksum/checksum-tricks.php#section-Launch_Modifiers" title="checksum's one-shot options dialog. file type group selector."><img alt="checksum creation options dialog, file types group drop-down, regular Windows masks apply" src="https://corz.org/windows/software/checksum/img/checksum_options_filetype_groups.webp"/></a>
+	</p>
+  <p>Common music, video, and archive formats come setup and ready to go, and you can easily edit or add to these at any time.
 	</p>
 	<p>You pop up the options by holding down the SHIFT key when you select the explorer menu item, so it's easy to get to the advanced options whenever you need them. Same goes for verification, though generally you won't need it - checksum is smart enough to just get on with the job, verifying whatever checksum files it finds in the path, be they MD5, SHA1 or SHA256 (even CRC32), or all of the above, and you'll probably never need to use anything but the default verify command, no matter how advanced you are! And because checksum recognizes other formats of CRC, MD5 and SHA1 files (there is no standard SHA256 format), it can be used not only to verify and create new checksums, but also verify existing checksum files, even <em>ancient</em> ones, automatically.
 	</p>
