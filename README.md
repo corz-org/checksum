@@ -531,7 +531,7 @@ No, not Buffy the Vampire Slayer! .. It's simple checksum for Windows!"> <img al
 	</h2>
 	<p>This is usually bang-up-to-date, and will keep you informed if you are messing around with the latest beta, and let you know what's coming up next. Note: it was getting a bit long to include here in the main page, so now there's a link to the original document, instead..
 	</p>
-	<p>You can get the latest version.nfo in a pop-up windoid, <a href="https://corz.org/public/machine/Windows/Software/checksum/version.nfo?view&amp;clean=true" title="The up-to-date itstory for checksum">here</a>, or via a regular link at the top of this page.
+	<p>You can get the latest itstory.txt in a pop-up windoid, <a href="https://corz.org/public/machine/Windows/Software/checksum/Source/itstory.txt?view&amp;clean=true" title="The up-to-date itstory for checksum">here</a>, or via a regular link at the top of this page.
 	</p>
 	<div>
 	</div>
