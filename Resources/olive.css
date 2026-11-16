@@ -1,0 +1,110 @@
+/*
+	Olive Log styles, for checksum from  corz.org v0.3.1.
+	by seVen
+
+		https://corz.org/windows/software/checksum/
+
+	This stylesheet is freely released into the public domain.
+
+	notes:
+
+		This is the master checksum stylesheet. Although logs will function just
+		fine without it, they don't look nearly so smart.
+
+		Feel free to edit this file to your own requirements, though please note
+		that most of the style classes need to keep their original names to
+		remain functional. ".MISSING", for example, is assigned dynamically from
+		the status of the current file's hash, as are others. ".logs" is the main
+		container, and so on.
+
+		However, the colors and positional elements are all yours. Go nuts!
+
+*/
+
+body {
+	font-size: 0.9em;
+	font-family: Tahoma, Lucida Grande, Helvetica, Verdana, sans-serif;
+	background: #DFDCBB url(https://corz.org/windows/software/checksum/img/background-olive-brown.png) fixed repeat-x;
+	color: #908c43;
+	margin: 0;
+	padding: 0;
+	height: 100%;
+	width: 100%;
+	}
+
+.logs { /* inner container */
+	margin: 1px 12px 12px 12px;
+	float: none;
+	clear: both;
+	padding: 5px;
+	}
+
+.label {
+	font-size: 1.2em;
+	font-weight: bold;
+	margin-top: 1em;
+}
+
+.logs .blocks .blocks {
+	border: 2px solid;
+	padding: 5px;
+	clear: both;
+	height: 100%;
+	background-color: #cac790;
+}
+
+/* we use a (slightly altered) header so that unformatted logs have context */
+h4 { margin: -0.1em 0 -0.1em 0; }
+h1, h3, h4 { cursor: pointer; }
+
+a:link { color: #908c43; text-decoration: none; background: none; }
+a:visited { color: #908c43; text-decoration: none; background: none; }
+a:hover { color: #eeecdb; text-decoration: none; background: none; }
+a:active { color: #b7af64; text-decoration: none; background: none; }
+
+.blocks { margin: 0.5em 0 0 1em; }
+
+.status { float: right; }
+
+.log_times {
+	font-size: 60%;
+	color: #908c43;
+	font-weight: lighter;
+	}
+
+.result:hover { background-color:#aba96e; }
+
+.checksum-Passed, .checksum-MISSING, .checksum-CHANGED, .checksum-CORRUPT, .checksum-ERROR, .checksum-DELETED, .checksum-UPDATED, .checksum-BAD {
+	font-family: "Lucida Console", ProFontWindows, Consolas, monospace;
+	float: left;
+	font-size: 0.9em;
+	}
+.checksum-Passed, .Passed	{ color: #f2f6c3; }
+.checksum-MISSING, .MISSING	{ color: #826b28; }
+.checksum-CHANGED, .CHANGED	{ color: #2b1309; }
+.checksum-CORRUPT, .CORRUPT	{ color: #9b1c1c; }
+.checksum-ERROR, .ERROR		{ color: #d96c00; }
+.checksum-DELETED, .DELETED { color: #a34900; }
+.checksum-BAD, .BAD { font-weight: bold; font-size: 1.2em; color: #782300; }
+.checksum-UPDATED, .UPDATED { color: #f8fce9; }
+
+/*
+	checksum title color IF there are errors inside..
+	if you don't want these a different color, set it
+	to the same color as body{color:#******;} */
+.has_fails, .day_fails { color: #965d1a; }
+
+.link-corz {
+	font-size: 0.8em;
+	background-color: transparent;
+	position: absolute;
+	top: 6px;
+	right: 8px;
+	}
+
+.clear {
+	margin: 0;
+	width: 100%;
+	clear: both;
+	font-size: 0;
+	}

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="initial-scale=1.0, width=device-width">
+<meta name="description" content="HTML log output from checksum.. https://corz.org/windows/software/checksum/" />
+<script type="text/javascript">
+/*
+	checksum log file html header v0.3 (HTML5)
+	If you improve these functions any, send me the code!
+*/
+
+// based on quirksmode code..
+window.onload = function () {
+	var x = document.getElementsByTagName('div');
+	for (var i=0;i<x.length;i++)
+	{
+		if (x[i].className == 'label')
+			x[i].onclick = clickNav;
+	}
+
+	document.getElementById("log-head").onclick = ToggleAllNav;
+
+	// if you prefer to open the log with all the sections expanded,
+	// comment out this next line..
+	closeEntireNav();
+}
+
+function closeEntireNav()
+{
+	var x = document.getElementsByTagName('div');
+	for (var i=0;i<x.length;i++)
+	{
+		if (x[i].className == 'blocks')
+			x[i].style.display = 'none';
+	}
+}
+
+// This is handy! (so long as you have cursor: pointer; in your css! ;o)
+// I designed this to work as a BIG TOGGLE. If *any* divs are closed, it opens *all* divs
+// If *all* divs are open, it closes everything. Between this and the inner toggle, you
+// should be able to switch between most states in your logs, get to entries easily..
+function ToggleAllNav()
+{
+	var clozed = 0;
+	var x = document.getElementsByTagName('div');
+
+	// first loop to check if any divs are closed. If so, we're in expand mode.
+	for (var i=0;i<x.length;i++)
+	{
+		if ((x[i].className == 'blocks') && (x[i].style.display == 'none'))
+		{
+			clozed = 1;
+			break;
+		}
+	}
+	// it's not as inefficient as it looks!
+	for (var i=0;i<x.length;i++)
+	{
+		if (x[i].className == 'blocks')
+		{
+			if (clozed == 1)
+			{
+				x[i].style.display = 'block';
+			} else {
+				x[i].style.display = 'none';
+			}
+		}
+	}
+}
+
+function clickNav(e)
+{
+	if (!e) var e = window.event;
+	if (e.target) var tg = e.target;
+	else if (e.srcElement) var tg = e.srcElement;
+	while (tg.nodeName != 'DIV') // gotta love Safari!
+		tg = tg.parentNode;
+	var nextSib = tg.nextSibling;
+	while (nextSib.nodeType != 1)
+		nextSib = nextSib.nextSibling;
+	var nextSibStatus = (nextSib.style.display == 'none') ? 'block' : 'none';
+	nextSib.style.display = nextSibStatus;
+}
+</script>
+
+<!-- end header template - checksum will take over from here. -->
