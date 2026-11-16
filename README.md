@@ -3,9 +3,8 @@
 <div>
 	<h2>Point-and-click hashing for Windows
 	</h2>
-	<p> <a href="https://corz.org/windows/software/checksum/#section-Download" title="Click here to go straight to the downloads!"><img alt="checksum icon/logo, in super-large 256 pixel size PNG!" src="https://corz.org/windows/software/checksum/img/checksum_icon_256px.png"/></a><br/> <span>verify data <em>the easy way</em></span>
+	<p> <a href="https://corz.org/windows/software/checksum/#section-Download" title="Click here to go straight to the downloads!"><img alt="checksum icon/logo, in super-large 256 pixel size PNG!" src="https://corz.org/windows/software/checksum/img/checksum_icon_256px.png"/></a><br/>
 	</p>
-	<h3>The world's fastest hashing application, <em>just got faster!</em>
 	</h3>
 	<p>Welcome to checksum, a blisteringly fast, no-nonsense file hashing application for Windows, a program that generates and verifies <a href="https://corz.org/windows/software/checksum/md5-sha1-sha256-algorithms.php" title="Now with SHA256 hashing and CRC32 checksums!">SHA256 (a.k.a. "SHA2"), SHA1 and MD5</a> hashes; aka. "MD5 Sums", or "digital fingerprints"; of a file, a folder, or recursively, even through an entire disk or volume, does it <em>extremely</em> quickly, intelligently, and without fuss. <a href="https://corz.org/windows/software/checksum/files/reading" title="A few things to read">Many people</a> strongly believe it to be the best hashing utility on planet Earth.
 	</p>
