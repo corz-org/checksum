@@ -43,7 +43,7 @@
 
 
 
-    2.0.2.2 [current release]
+    2.0.2.2
 
       ~ Some minor issues no one would notice!
 
