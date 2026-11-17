@@ -1,5 +1,5 @@
-#AutoIt3Wrapper_Res_Fileversion=2.0.2.1
-global const $VERSION = "2.0.2.1"
+#AutoIt3Wrapper_Res_Fileversion=2.0.3.0
+global const $VERSION = "2.0.3.0"
 
 ;
 ; checksum
@@ -29,17 +29,17 @@ Debug Levels:
 
 		11: All previous (except 10) + outputs /all/ current language translation phrases.
 
-
   Not every function has debug statements. ;o)
 
 #ce
 
 
 #include <Misc.au3>
+#include <Math.au3>
 #include <Constants.au3>
 #include <ComboConstants.au3>
 #include <StructureConstants.au3>
-#include "APIFilesConstants.au3"
+#include <APIFilesConstants.au3>
 #include <WinAPIInternals.au3>
 #include <WinAPIFiles.au3>
 #include <WinAPIGdi.au3>
@@ -64,7 +64,7 @@ global const $MY_URL = "https://corz.org/windows/software/checksum/"
 global const $DOWNLOAD_URL = "https://corz.org/windows/software/checksum/#section-download"
 global const $VERSION_CHECK_URL = "https://corz.org/inc/versions.php?app=checksum"
 global const $BETA_URL = "https://corz.org/inc/versions.php?app=checksum-beta"
-global const $UPDATE_LOG = "https://corz.org/public/machine/source/beta/windows/checksum/version.nfo"
+global const $UPDATE_LOG = "https://corz.org/public/machine/Windows/Software/checksum/Source/itstory.txt?view"
 
 global $beta_channel, $do_exit_command, $exe_path
 global $ini_installed = false
@@ -671,14 +671,6 @@ $memory_tuning *= 10000
 debug("memory_tuning =>" & $memory_tuning & "<=", @ScriptLineNumber, 5)
 
 
-if IniReadCheckBox($ini_path, "dialogs", "shift options notice", $OFF) = $OFF then
-	$my_msg = _T("ONE TIME NOTICE!")
-	$full_text = _T("To bring up the options dialog in future,\n\nhold down the SHIFT key when you launch checksum.")
-	MsgBox($MB_TOPMOST, $my_msg, $my_msg & @LF & @LF & _L($full_text), $dialog_timeout)
-	$switches &= "o"
-	IniWriteCheckBox($ini_path, "dialogs", "shift options notice", $ON)
-endif
-
 
 global $inifile_masks_array = IniReadSection($ini_path, "file masks")
 $file_mask = ExtractSwitchGroup("m", $file_mask)
@@ -801,7 +793,15 @@ endfunc
 ; Options Dialogs..		cro B:\							vro B:\
 debug("do_options =>" & Human($do_options) & "<=", @ScriptLineNumber, 5)
 
-if StringInStr($switches, "o") or $do_options then
+if ($operation_mode = "create" or $operation_mode = "verify") and not StringInStr($switches, "q") and IniReadCheckBox($ini_path, "dialogs", "shift options notice", $OFF) = $OFF then
+	$my_msg = _T("ONE TIME NOTICE!")
+	$full_text = _T("To bring up the options dialog in future,\n\nhold down the SHIFT key when you launch checksum.")
+	MsgBox($MB_TOPMOST, $my_msg, $my_msg & @LF & @LF & _L($full_text), $dialog_timeout)
+	$switches &= "o"
+	IniWriteCheckBox($ini_path, "dialogs", "shift options notice", $ON)
+endif
+
+if ($operation_mode = "create" or $operation_mode = "verify") and (StringInStr($switches, "o") or $do_options) then
 
 	debug("switches before options: " & $switches, @ScriptLineNumber, 5)
 	if $operation_mode = "create" then
@@ -809,6 +809,7 @@ if StringInStr($switches, "o") or $do_options then
 	else
 		DoVerifyOptions()
 	endif
+	if $user_quit then CheckVersionAndExit(-9)
 	debug("switches AFTER options =>" & $switches & "<=", @ScriptLineNumber, 5)
 
 	DetermineRecurseFromPath($path)
@@ -4231,34 +4232,67 @@ func DoCreateOptions()
 		if not StringInStr($switches, "q") then $switches = "q" & $switches
 	endif
 
-	local $base_gui_width = 370
-	debug("base_gui_width: =>" & $base_gui_width & "<=" , @ScriptLineNumber, 7)
-	local $base_gui_height = 212
-
-	if $base_gui_width + $opt_x > @DesktopWidth then $opt_x = @DesktopWidth - $base_gui_width - 5
-	if $base_gui_height + $opt_y > @DesktopHeight then $opt_y = @DesktopHeight - $base_gui_height - 5
+	local $text_scale = ChecksumDialogTextScale()
 	local $old_gui_mode = AutoItSetOption("GUIOnEventMode", 0)
-	local $standard_gui_width = $base_gui_width * GetLanguageWidthMultiplier($active_language)
+	local $old_coord_mode = AutoItSetOption("GUICoordMode", 1)
 	local $opt_width = Int(GetINIArrayValue($ini_array, "create_options_width", 0))
-
-	if $opt_width then
-		if $opt_width > @DesktopWidth or $opt_width < 355 then $opt_width = 355
-		$base_gui_width = $opt_width
-	else
-		$base_gui_width = $standard_gui_width
-	endif
-
-	$GUI_Options = GUICreate($app_name & " " & _T("one-shot create options") & "..", $base_gui_width, $base_gui_height, $opt_x, $opt_y, _
+	if $opt_width < 355 or $opt_width > @DesktopWidth then $opt_width = 0
+	$GUI_Options = GUICreate($app_name & " " & _T("one-shot create options") & "..", 370, 212, $opt_x, $opt_y, _
 		BitOr($WS_MINIMIZEBOX, $WS_CAPTION, $WS_POPUP, $WS_SYSMENU, $WS_SIZEBOX), $WS_EX_ACCEPTFILES)
+	GUISetFont(9 * $text_scale, default, default, "Segoe UI", $GUI_Options)
+
+	local $captions = [_T("path") & ":", _T("mask") & ":", _T("behaviour") & "..", _T("recurse"), _T("synchronize"), _
+		_T("individual checksums"), _T("one-file 'root' hashes"), _T("record absolute paths"), _T("progress tip"), _T("beeps"), _
+		_T("quiet mode (no dialogs)"), _T("shutdown when done"), _T("output") & "..", _T("UPPERCASE"), _T("hide checksums"), _
+		_T("add file extensions"), _T("{{winamp}} playlists"), _T("{{shoutcast}} playlists"), _T("output directory") & "..", _
+		_T("algorithm") & "..", _T("switches") & "..", _T("do it now!")]
+	local $measure = GUICtrlCreateLabel("", 0, 0, 1, 1)
+	local $line_height = FitLabelHeight($measure, "Ag", 100)
+	local $gap = Ceiling($line_height / 2)
+	local $row_height = $line_height + Ceiling($gap / 3)
+	local $caption_widths[UBound($captions)]
+	for $i = 0 to UBound($captions) - 1
+		$caption_widths[$i] = FitLabelWidth($measure, $captions[$i], @DesktopWidth)
+	next
+	local $checkbox_padding = $line_height + $gap
+	local $behaviour_width = _Max($caption_widths[2], _Max($caption_widths[3] + $caption_widths[4], $caption_widths[8] + $caption_widths[9]) + 2 * $checkbox_padding + $gap)
+	for $i = 5 to 11
+		$behaviour_width = _Max($behaviour_width, $caption_widths[$i] + $checkbox_padding)
+	next
+	$behaviour_width += 2 * $gap
+	local $output_width = $caption_widths[12]
+	for $i = 13 to 18
+		$output_width = _Max($output_width, $caption_widths[$i] + $checkbox_padding)
+	next
+	$output_width += 2 * $gap
+	local $commands_width = _Max(_Max($caption_widths[19], $caption_widths[20]), $caption_widths[21]) + 3 * $gap
+	for $i = 1 to $algorithm_strings[0]
+		$commands_width = _Max($commands_width, FitLabelWidth($measure, $algorithm_strings[$i], @DesktopWidth, $line_height + 2 * $gap))
+	next
+	GUICtrlDelete($measure)
+
+	local $field_left = _Max($caption_widths[0], $caption_widths[1]) + 2 * $gap
+	local $groups_top = 2 * $row_height + 3 * $gap
+	local $first_row = $groups_top + $row_height
+	local $groups_height = 8 * $row_height + $gap
+	local $standard_gui_width = _Max($field_left + 12 * $line_height, $behaviour_width + $output_width + $commands_width + 4 * $gap)
+	local $base_gui_width = _Max($standard_gui_width, $opt_width)
+	local $base_gui_height = $groups_top + $groups_height + $gap
+	local $output_left = $behaviour_width + 2 * $gap
+	local $commands_left = $base_gui_width - $commands_width - $gap
+	local $outer = WinGetPos($GUI_Options)
+	local $client = WinGetClientSize($GUI_Options)
+	local $frame_width = $outer[2] - $client[0], $frame_height = $outer[3] - $client[1]
+	WinMove($GUI_Options, "", _Max(0, _Min($outer[0], @DesktopWidth - $base_gui_width - $frame_width)), _
+		_Max(0, _Min($outer[1], @DesktopHeight - $base_gui_height - $frame_height)), $base_gui_width + $frame_width, $base_gui_height + $frame_height)
 	GUISetIcon($exe_path, 0, $GUI_Options)
 	GUIRegisterMsg($WM_DROPFILES, "HandleDragDropFiles")
 
 	InitPaddedTips()
 
-	; GUICtrlCreateLabel(_T("path") & ":", 8, 12, 65, 20, $text_alignment, $reading_direction)
-	GUICtrlCreateLabel(_T("path") & ":", 8, 12, 65, 20)
+	GUICtrlCreateLabel($captions[0], $gap, $gap, $field_left - $gap, $row_height)
 	SetPaddedTip(-1, _T("hover over the folder path input box for more details."))
-	GUICtrlSetResizing(-1, $GUI_DOCKSIZE + $GUI_DOCKLEFT)
+	GUICtrlSetResizing(-1, $GUI_DOCKSIZE + $GUI_DOCKLEFT + $GUI_DOCKTOP)
 
 	local $input_basename = ""
 	if not IsDir($path) then
@@ -4266,17 +4300,16 @@ func DoCreateOptions()
 		$path = GetLongParentDir($path)
 	endif
 
-	local $input_path = GUICtrlCreateInput(FormatPathForDisplay($path), 50, -2, $base_gui_width-62)
-	GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKRIGHT)
+	local $input_path = GUICtrlCreateInput(FormatPathForDisplay($path), $field_left, $gap, $base_gui_width - $field_left - $gap, $row_height)
+	GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKRIGHT + $GUI_DOCKTOP + $GUI_DOCKHEIGHT)
 	GUICtrlSetState(-1, $GUI_DROPACCEPTED)
 
-	; GUICtrlCreateLabel(_T("mask") & ":", -50, 25, 65, 20, $text_alignment, $reading_direction)
-	GUICtrlCreateLabel(_T("mask") & ":", -50, 25, 65, 20)
+	GUICtrlCreateLabel($captions[1], $gap, $row_height + 2 * $gap, $field_left - $gap, $row_height)
 	SetPaddedTip(-1, _T("hover over the masks drop-down button for more details."))
-	GUICtrlSetResizing(-1, $GUI_DOCKSIZE + $GUI_DOCKLEFT)
+	GUICtrlSetResizing(-1, $GUI_DOCKSIZE + $GUI_DOCKLEFT + $GUI_DOCKTOP)
 
-	local $combo__mask = GUICtrlCreateCombo($file_mask, 50, -2, $base_gui_width-62) ; RTL pointless here
-	GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKRIGHT)
+	local $combo__mask = GUICtrlCreateCombo($file_mask, $field_left, $row_height + 2 * $gap, $base_gui_width - $field_left - $gap) ; RTL pointless here
+	GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKRIGHT + $GUI_DOCKTOP + $GUI_DOCKHEIGHT)
 
 	local $mask_list = ""
 	$inifile_masks_array = IniReadSection($ini_path, "file masks")
@@ -4295,75 +4328,84 @@ func DoCreateOptions()
 		GUICtrlSetData($combo__mask, $mask_list, $default_mask)
 	endif
 
-	GUISetCoord(5, 55)
-
-	$group_behaviour = GUICtrlCreateGroup(_T("behaviour") & "..", 0, 0, $base_gui_width/2.37, 152)
-	local $checkbox_recurse = CreateCheckbox(_T("recurse"), 5, 15)
+	$group_behaviour = GUICtrlCreateGroup($captions[2], $gap, $groups_top, $behaviour_width, $groups_height)
+	GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKSIZE)
+	local $checkbox_recurse = CreateCheckbox($captions[3], 2 * $gap, $first_row, $caption_widths[3] + $checkbox_padding, $row_height)
+	GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKSIZE)
 	if StringInStr($switches, "r") then GUICtrlSetState(-1, $ON)
 	if not IsDir(GUICtrlRead($input_path)) then GUICtrlSetState(-1, $OFF)
-	local $checkbox_sync = CreateCheckbox(_T("synchronize"), 65, 0)
+	local $checkbox_sync = CreateCheckbox($captions[4], 3 * $gap + $caption_widths[3] + $checkbox_padding, $first_row, $caption_widths[4] + $checkbox_padding, $row_height)
+	GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKSIZE)
 	if StringInStr($switches, "y") then GUICtrlSetState(-1, $ON)
-	local $checkbox_individual = CreateCheckbox(_T("individual checksums"), -65, 18)
+	local $checkbox_individual = CreateCheckbox($captions[5], 2 * $gap, $first_row + 1 * $row_height, $caption_widths[5] + $checkbox_padding, $row_height)
+	GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKSIZE)
 	if StringInStr($switches, "i") then GUICtrlSetState(-1, $ON)
-	local $checkbox_root = CreateCheckbox(_T("one-file 'root' hashes"), 0, 18)
+	local $checkbox_root = CreateCheckbox($captions[6], 2 * $gap, $first_row + 2 * $row_height, $caption_widths[6] + $checkbox_padding, $row_height)
+	GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKSIZE)
 
 	if StringInStr($switches, "1") then
 		GUICtrlSetState(-1, $ON)
 		GUICtrlSetState($checkbox_recurse, $ON)
 	endif
 
-	local $checkbox_abs_paths = CreateCheckbox(_T("record absolute paths"), 0, 18)
+	local $checkbox_abs_paths = CreateCheckbox($captions[7], 2 * $gap, $first_row + 3 * $row_height, $caption_widths[7] + $checkbox_padding, $row_height)
+	GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKSIZE)
 	if StringInStr($switches, "k") then GUICtrlSetState(-1, $ON)
-	$checkbox_progress_tip = CreateCheckbox(_T("progress tip"), 0, 18)
+	$checkbox_progress_tip = CreateCheckbox($captions[8], 2 * $gap, $first_row + 4 * $row_height, $caption_widths[8] + $checkbox_padding, $row_height)
+	GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKSIZE)
 	if StringInStr($switches, "t") then GUICtrlSetState(-1, $ON)
-	local $checkbox_audio_alerts = CreateCheckbox(_T("beeps"), 90, 0)
+	local $checkbox_audio_alerts = CreateCheckbox($captions[9], 3 * $gap + $caption_widths[8] + $checkbox_padding, $first_row + 4 * $row_height, $caption_widths[9] + $checkbox_padding, $row_height)
+	GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKSIZE)
 	if StringInStr($switches, "b") then GUICtrlSetState(-1, $ON)
-	local $checkbox_quiet = CreateCheckbox(_T("quiet mode (no dialogs)"), -90, 18)
+	local $checkbox_quiet = CreateCheckbox($captions[10], 2 * $gap, $first_row + 5 * $row_height, $caption_widths[10] + $checkbox_padding, $row_height)
+	GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKSIZE)
 	if StringInStr($switches, "q") then GUICtrlSetState(-1, $ON)
-	local $checkbox_shutdown = CreateCheckbox(_T("shutdown when done"), 0, 18)
+	local $checkbox_shutdown = CreateCheckbox($captions[11], 2 * $gap, $first_row + 6 * $row_height, $caption_widths[11] + $checkbox_padding, $row_height)
+	GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKSIZE)
 	if StringInStr($switches, "z") then GUICtrlSetState(-1, $ON)
 
-	GUISetCoord($base_gui_width/2.2, 55)
-
-	global $g_id_grp_output = GUICtrlCreateGroup(_T("output") & "..", 0, 0, $base_gui_width/3.09, 152)
-	local $checkbox_uppercase = CreateCheckbox(_T("UPPERCASE"), 5, 15)
+	global $g_id_grp_output = GUICtrlCreateGroup($captions[12], $output_left, $groups_top, $output_width, $groups_height)
+	GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKSIZE)
+	local $checkbox_uppercase = CreateCheckbox($captions[13], $output_left + $gap, $first_row, $caption_widths[13] + $checkbox_padding, $row_height)
+	GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKSIZE)
 	if StringInStr($switches, "u") then GUICtrlSetState(-1, $ON)
-	local $checkbox_hide = CreateCheckbox(_T("hide checksums"), 0, 18)
+	local $checkbox_hide = CreateCheckbox($captions[14], $output_left + $gap, $first_row + 1 * $row_height, $caption_widths[14] + $checkbox_padding, $row_height)
+	GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKSIZE)
 	if StringInStr($switches, "h") then GUICtrlSetState(-1, $ON)
-	local $checkbox_add_ext = CreateCheckbox(_T("add file extensions"), 0, 18)
+	local $checkbox_add_ext = CreateCheckbox($captions[15], $output_left + $gap, $first_row + 2 * $row_height, $caption_widths[15] + $checkbox_padding, $row_height)
+	GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKSIZE)
 	if StringInStr($switches, "e") then GUICtrlSetState(-1, $ON)
-	local $checkbox_winamp = CreateCheckbox(_T("{{winamp}} playlists"), 0, 18)
+	local $checkbox_winamp = CreateCheckbox($captions[16], $output_left + $gap, $first_row + 3 * $row_height, $caption_widths[16] + $checkbox_padding, $row_height)
+	GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKSIZE)
 	if StringInStr($switches, "3") or StringInStr($switches, "p") then GUICtrlSetState(-1, $ON)
-	local $checkbox_shoutcast = CreateCheckbox(_T("{{shoutcast}} playlists"), 0, 18)
+	local $checkbox_shoutcast = CreateCheckbox($captions[17], $output_left + $gap, $first_row + 4 * $row_height, $caption_widths[17] + $checkbox_padding, $row_height)
+	GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKSIZE)
 	if StringInStr($switches, "p") then GUICtrlSetState(-1, $ON)
-	local $checkbox_out_dir = CreateCheckbox(_T("output directory") & "..", 0, 18)
+	local $checkbox_out_dir = CreateCheckbox($captions[18], $output_left + $gap, $first_row + 5 * $row_height, $caption_widths[18] + $checkbox_padding, $row_height)
+	GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKSIZE)
 	if $out_dir then GUICtrlSetState(-1, $ON)
-	local $input_out_dir = GUICtrlCreateInput($out_dir, 0, 22, 105)
+	local $input_out_dir = GUICtrlCreateInput($out_dir, $output_left + $gap, $first_row + 6 * $row_height, $output_width - 2 * $gap, $row_height)
+	GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKSIZE)
 	GUICtrlSetData(-1, $out_dir)
 	if GUICtrlRead($checkbox_out_dir) = $OFF then GUICtrlSetState(-1, $GUI_HIDE)
 
 
-	GUISetCoord($base_gui_width/1.26, 55)	;											cro b:\
-
-	$group_algorithm = GUICtrlCreateGroup(_T("algorithm") & "..", 0, 0, $base_gui_width/5, 48)
-	GUICtrlSetResizing(-1, $GUI_DOCKRIGHT)
-
-	local $combo_algo = GUICtrlCreateCombo("", 5, 17, $base_gui_width/5 - 10, default, $CBS_DROPDOWNLIST)
-	GUICtrlSetResizing(-1, $GUI_DOCKRIGHT)
+	local $command_dock = $GUI_DOCKRIGHT + $GUI_DOCKTOP + $GUI_DOCKSIZE
+	$group_algorithm = GUICtrlCreateGroup($captions[19], $commands_left, $groups_top, $commands_width, 2 * $row_height + $gap)
+	GUICtrlSetResizing(-1, $command_dock)
+	local $combo_algo = GUICtrlCreateCombo("", $commands_left + $gap, $first_row, $commands_width - 2 * $gap, default, $CBS_DROPDOWNLIST)
+	GUICtrlSetResizing(-1, $command_dock)
 	GUICtrlSetData(-1, AlgoComboList(), $algorithm_strings[AlgoIDFromSwitches()])
 
+	local $switches_top = $groups_top + 4 * $row_height
+	local $group_switches = GUICtrlCreateGroup($captions[20], $commands_left, $switches_top, $commands_width, 2 * $row_height + $gap)
+	GUICtrlSetResizing(-1, $command_dock)
+	local $input_switches = GUICtrlCreateInput($switches, $commands_left + $gap, $switches_top + $row_height, $commands_width - 2 * $gap, $row_height)
+	GUICtrlSetResizing(-1, $command_dock)
 
-	GUISetCoord($base_gui_width/1.26, 134)
-
-	local $group_switches = GUICtrlCreateGroup(_T("switches") & "..", 0, 0, $base_gui_width/5, 48)
-	GUICtrlSetResizing(-1, $GUI_DOCKRIGHT)
-	local $input_switches = GUICtrlCreateInput($switches, 5, 17, $base_gui_width/5 - 10, 20)
-	GUICtrlSetResizing(-1, $GUI_DOCKRIGHT)
-
-	GUISetCoord($base_gui_width/1.26+1, 184)
-
-	local $button_run = GUICtrlCreateButton("&" & _T("do it now!"), 0, 0, $base_gui_width/5.1, 23, $BS_DEFPUSHBUTTON, $reading_direction)
-	GUICtrlSetResizing(-1, $GUI_DOCKRIGHT)
+	local $button_run = GUICtrlCreateButton("&" & $captions[21], $commands_left, $base_gui_height - $row_height - $gap, $commands_width, $row_height, $BS_DEFPUSHBUTTON, $reading_direction)
+	GUICtrlSetResizing(-1, $command_dock)
+	AutoItSetOption("GUICoordMode", $old_coord_mode)
 
 	if $help_tips = $ON then
 
@@ -4848,6 +4890,9 @@ func DoCreateOptions()
 		endswitch
 	wend
 
+	AutoItSetOption("GUIOnEventMode", $old_gui_mode)
+	GUIDelete($GUI_Options)
+
 endfunc
 
 
@@ -4864,77 +4909,117 @@ func DoVerifyOptions()
 	debug("DoVerifyOptions() ---> $initial switches =>" & $switches & "<=", @ScriptLineNumber, 7)
 
 	local $old_gui_mode = AutoItSetOption("GUIOnEventMode", 0)
-
-	local $base_gui_width = 375
-	local $base_gui_height = 180
-	local $standard_gui_width = $base_gui_width * GetLanguageWidthMultiplier($active_language)
-
-	if $base_gui_width + $opt_x > @DesktopWidth then $opt_x = @DesktopWidth - $base_gui_width - 5
-	if $base_gui_height + $opt_y > @DesktopHeight then $opt_y = @DesktopHeight - $base_gui_height - 5
-
+	local $old_coord_mode = AutoItSetOption("GUICoordMode", 1)
+	local $text_scale = ChecksumDialogTextScale()
 	local $opt_width = Int(GetINIArrayValue($ini_array, "verify_options_width", 0))
+	if $opt_width < 355 or $opt_width > @DesktopWidth then $opt_width = 0
 
-	if $opt_width then
-		if $opt_width > @DesktopWidth or $opt_width < 355 then $opt_width = 355
-		$base_gui_width = $opt_width
-	else
-		$base_gui_width = $standard_gui_width
-	endif
-
-	$GUI_Options = GUICreate($app_name & " " & _T("one-shot verify options") & "..", $base_gui_width, $base_gui_height, _
+	$GUI_Options = GUICreate($app_name & " " & _T("one-shot verify options") & "..", 375, 180, _
 		$opt_x, $opt_y, BitOr($WS_MINIMIZEBOX, $WS_CAPTION, $WS_POPUP, $WS_SYSMENU, $WS_SIZEBOX), $WS_EX_ACCEPTFILES)
+	GUISetFont(9 * $text_scale, default, default, "Segoe UI", $GUI_Options)
+
+	local $captions = [_T("path") & ":", _T("logging") & "..", _T("log failures"), _T("log everything"), _T("append logs"), _
+		_T("goto log folder"), _T("log to a file in") & "..", _T("behaviour") & "..", _T("recurse"), _T("audio alerts"), _
+		_T("progress tip"), _T("delete missing hashes"), _T("update changed hashes"), _T("email on hash fail"), _T("shutdown when done"), _
+		_T("algorithm") & "..", _T("all algorithms"), _T("search + verify"), _T("do it now!")]
+	local $measure = GUICtrlCreateLabel("", 0, 0, 1, 1)
+	local $line_height = FitLabelHeight($measure, "Ag", 100)
+	local $gap = Ceiling($line_height / 2)
+	local $row_height = $line_height + Ceiling($gap / 3)
+	local $toggle_padding = $line_height + $gap
+	local $caption_widths[UBound($captions)]
+	for $i = 0 to UBound($captions) - 1
+		$caption_widths[$i] = FitLabelWidth($measure, $captions[$i], @DesktopWidth)
+	next
+
+	local $logging_width = $caption_widths[1]
+	for $i = 2 to 6
+		$logging_width = _Max($logging_width, $caption_widths[$i] + $toggle_padding)
+	next
+	$logging_width += 2 * $gap
+	local $behaviour_width = $caption_widths[7]
+	for $i = 8 to 14
+		$behaviour_width = _Max($behaviour_width, $caption_widths[$i] + $toggle_padding)
+	next
+	$behaviour_width += 2 * $gap
+	local $algorithm_width = $caption_widths[16] + $toggle_padding
+	for $i = 1 to $algorithm_strings[0]
+		$algorithm_width = _Max($algorithm_width, FitLabelWidth($measure, $algorithm_strings[$i], @DesktopWidth, $toggle_padding))
+	next
+	local $commands_width = _Max(_Max($caption_widths[15], $algorithm_width), _Max($caption_widths[17] + $toggle_padding, $caption_widths[18])) + 2 * $gap
+	GUICtrlDelete($measure)
+
+	local $field_left = $caption_widths[0] + 2 * $gap
+	local $groups_top = $row_height + 3 * $gap
+	local $first_row = $groups_top + $row_height
+	local $groups_height = 8 * $row_height + $gap
+	local $standard_gui_width = _Max($field_left + 12 * $line_height, $logging_width + $behaviour_width + $commands_width + 4 * $gap)
+	local $base_gui_width = _Max($standard_gui_width, $opt_width)
+	local $base_gui_height = $groups_top + $groups_height + $gap
+	local $behaviour_left = $logging_width + 2 * $gap
+	local $commands_left = $base_gui_width - $commands_width - $gap
+	local $left_dock = $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKSIZE
+	local $right_dock = $GUI_DOCKRIGHT + $GUI_DOCKTOP + $GUI_DOCKSIZE
+	local $outer = WinGetPos($GUI_Options)
+	local $client = WinGetClientSize($GUI_Options)
+	local $frame_width = $outer[2] - $client[0], $frame_height = $outer[3] - $client[1]
+	WinMove($GUI_Options, "", _Max(0, _Min($outer[0], @DesktopWidth - $base_gui_width - $frame_width)), _
+		_Max(0, _Min($outer[1], @DesktopHeight - $base_gui_height - $frame_height)), $base_gui_width + $frame_width, $base_gui_height + $frame_height)
 	GUISetIcon($exe_path, 0, $GUI_Options)
 
 	InitPaddedTips()
 
-	; local $label_path = GUICtrlCreateLabel(_T("path") & ":", 8, 12, 65, 20, $text_alignment, $reading_direction)
-	local $label_path = GUICtrlCreateLabel(_T("path") & ":", 8, 12, 65, 20)
-	GUICtrlSetResizing(-1, $GUI_DOCKSIZE + $GUI_DOCKLEFT)
-	; local $input_path = GUICtrlCreateInput(FormatPathForDisplay($path), 30, -2, 313, default, $text_alignment, $reading_direction)
-	local $input_path = GUICtrlCreateInput(FormatPathForDisplay($path), 30, -2, $base_gui_width-50)
+	local $label_path = GUICtrlCreateLabel($captions[0], $gap, $gap, $field_left - $gap, $row_height)
+	GUICtrlSetResizing(-1, $left_dock)
+	local $input_path = GUICtrlCreateInput(FormatPathForDisplay($path), $field_left, $gap, $base_gui_width - $field_left - $gap, $row_height)
 	GUICtrlSetState(-1, $GUI_DROPACCEPTED)
-	GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKRIGHT)
+	GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKRIGHT + $GUI_DOCKTOP + $GUI_DOCKHEIGHT)
 
-	GUISetCoord($base_gui_width/3.11, 35)
-
-	GUICtrlCreateGroup(_T("behaviour") & "..", 0, 0, $base_gui_width/2.58, 141, BitOr($WS_GROUP, 7))
-	local $checkbox_recurse = CreateCheckbox(_T("recurse"), 5, 14)
+	GUICtrlCreateGroup($captions[7], $behaviour_left, $groups_top, $behaviour_width, $groups_height, BitOr($WS_GROUP, $BS_GROUPBOX))
+	GUICtrlSetResizing(-1, $left_dock)
+	local $checkbox_recurse = CreateCheckbox($captions[8], $behaviour_left + $gap, $first_row, $caption_widths[8] + $toggle_padding, $row_height)
+	GUICtrlSetResizing(-1, $left_dock)
 	if StringInStr($switches, "r") then GUICtrlSetState(-1, $ON)
 	if not IsDir(GUICtrlRead($input_path)) then GUICtrlSetState(-1, $OFF)
-	local $checkbox_audio_alerts = CreateCheckbox(_T("audio alerts"), 0, 17)
+	local $checkbox_audio_alerts = CreateCheckbox($captions[9], $behaviour_left + $gap, $first_row + 1 * $row_height, $caption_widths[9] + $toggle_padding, $row_height)
+	GUICtrlSetResizing(-1, $left_dock)
 	if StringInStr($switches, "b") then GUICtrlSetState(-1, $ON)
 	GUICtrlSetState(-1, $beep_alerts)
-	$checkbox_progress_tip = CreateCheckbox(_T("progress tip"), 0, 17)
+	$checkbox_progress_tip = CreateCheckbox($captions[10], $behaviour_left + $gap, $first_row + 2 * $row_height, $caption_widths[10] + $toggle_padding, $row_height)
+	GUICtrlSetResizing(-1, $left_dock)
 	if StringInStr($switches, "t") then GUICtrlSetState(-1, $ON)
-	local $checkbox_delete_missing = CreateCheckbox(_T("delete missing hashes"), 0, 17)
+	local $checkbox_delete_missing = CreateCheckbox($captions[11], $behaviour_left + $gap, $first_row + 3 * $row_height, $caption_widths[11] + $toggle_padding, $row_height)
+	GUICtrlSetResizing(-1, $left_dock)
 	if StringInStr($switches, "x") then GUICtrlSetState(-1, $ON)
-	local $checkbox_update_changed = CreateCheckbox(_T("update changed hashes"), 0, 17)
+	local $checkbox_update_changed = CreateCheckbox($captions[12], $behaviour_left + $gap, $first_row + 4 * $row_height, $caption_widths[12] + $toggle_padding, $row_height)
+	GUICtrlSetResizing(-1, $left_dock)
 	if StringInStr($switches, "w") then GUICtrlSetState(-1, $ON)
 
-	local $checkbox_email_fail = CreateCheckbox(_T("email on hash fail"), 0, 17)
+	local $checkbox_email_fail = CreateCheckbox($captions[13], $behaviour_left + $gap, $first_row + 5 * $row_height, $caption_widths[13] + $toggle_padding, $row_height)
+	GUICtrlSetResizing(-1, $left_dock)
 	if StringInStr($switches, "e") then GUICtrlSetState(-1, $ON)
 
-	local $checkbox_shutdown = CreateCheckbox(_T("shutdown when done"), 0, 17)
+	local $checkbox_shutdown = CreateCheckbox($captions[14], $behaviour_left + $gap, $first_row + 6 * $row_height, $caption_widths[14] + $toggle_padding, $row_height)
+	GUICtrlSetResizing(-1, $left_dock)
 	if StringInStr($switches, "z") then GUICtrlSetState(-1, $ON)
 
-	GUISetCoord($base_gui_width/1.39, 35)
-
-	GUICtrlCreateGroup(_T("algorithm") & "..", 0, 0, $base_gui_width/3.77, 42, BitOr($WS_GROUP, 7))
-	GUICtrlSetResizing(-1, $GUI_DOCKRIGHT)
-	local $combo_alg_filter = GUICtrlCreateCombo("", 5, 15, $base_gui_width/3.77 - 12, default, $CBS_DROPDOWNLIST)
-	GUICtrlSetResizing(-1, $GUI_DOCKRIGHT)
-	local $verify_default = _T("all algorithms")
+	GUICtrlCreateGroup($captions[15], $commands_left, $groups_top, $commands_width, 2 * $row_height + $gap, BitOr($WS_GROUP, $BS_GROUPBOX))
+	GUICtrlSetResizing(-1, $right_dock)
+	local $combo_alg_filter = GUICtrlCreateCombo("", $commands_left + $gap, $first_row, $commands_width - 2 * $gap, default, $CBS_DROPDOWNLIST)
+	GUICtrlSetResizing(-1, $right_dock)
+	local $verify_default = $captions[16]
 	for $i = 1 to $algo_switch_letters[0]
 		if StringInStr($switches, "a" & $algo_switch_letters[$i]) then $verify_default = $algorithm_strings[$i]
 	next
-	GUICtrlSetData(-1, _T("all algorithms") & "|" & AlgoComboList(), $verify_default)
+	GUICtrlSetData(-1, $captions[16] & "|" & AlgoComboList(), $verify_default)
 
-	GUISetCoord(5, 35)
-
-	GUICtrlCreateGroup(_T("logging") & "..", 0, 0, $base_gui_width/3.36, 141, -1)
-	local $radio_log_failures = CreateRadioButton(_T("log failures"), 5, 15, 85)
+	GUICtrlCreateGroup($captions[1], $gap, $groups_top, $logging_width, $groups_height)
+	GUICtrlSetResizing(-1, $left_dock)
+	local $radio_log_failures = CreateRadioButton($captions[2], 2 * $gap, $first_row, $caption_widths[2] + $toggle_padding, $row_height)
+	GUICtrlSetResizing(-1, $left_dock)
 	GUICtrlSetState(-1, $ON)
-	local $radio_log_everything = CreateRadioButton(_T("log everything"), 0, 18, 95)
+	local $radio_log_everything = CreateRadioButton($captions[3], 2 * $gap, $first_row + $row_height, $caption_widths[3] + $toggle_padding, $row_height)
+	GUICtrlSetResizing(-1, $left_dock)
 
 	if StringInStr($switches, "l") then
 		GUICtrlSetState(-1, $ON)
@@ -4944,31 +5029,31 @@ func DoVerifyOptions()
 		if not StringInStr($switches, "f") then $switches &= "f"
 	endif
 
-	local $checkbox_append_logs = CreateCheckbox(_T("append logs"), 0, 22)
+	local $checkbox_append_logs = CreateCheckbox($captions[4], 2 * $gap, $first_row + 2 * $row_height, $caption_widths[4] + $toggle_padding, $row_height)
+	GUICtrlSetResizing(-1, $left_dock)
 	GUICtrlSetState(-1, $append_logs)
-	local $checkbox_open_log_folder = CreateCheckbox(_T("goto log folder"), 0, 20)
+	local $checkbox_open_log_folder = CreateCheckbox($captions[5], 2 * $gap, $first_row + 3 * $row_height, $caption_widths[5] + $toggle_padding, $row_height)
+	GUICtrlSetResizing(-1, $left_dock)
 	if StringInStr($switches, "g") then GUICtrlSetState(-1, $ON)
-	local $checkbox_log_to_file = CreateCheckbox(_T("log to a file in") & "..", 0, 20)
+	local $checkbox_log_to_file = CreateCheckbox($captions[6], 2 * $gap, $first_row + 4 * $row_height, $caption_widths[6] + $toggle_padding, $row_height)
+	GUICtrlSetResizing(-1, $left_dock)
 	if StringInStr($switches, "f") then GUICtrlSetState(-1, $ON)
-	; local $input_log_folder = GUICtrlCreateInput($log_folder, 0, 22, 248, default, $text_alignment, $reading_direction)
-	local $input_log_folder = GUICtrlCreateInput($log_folder, 0, 22, 248)
+	local $log_field_width = $logging_width - 2 * $gap
+	local $input_log_folder = GUICtrlCreateInput($log_folder, 2 * $gap, $first_row + 6 * $row_height, $log_field_width, $row_height)
+	GUICtrlSetResizing(-1, $left_dock)
 	GUICtrlSetData(-1, $log_folder)
 	if GUICtrlRead($checkbox_log_to_file) = $OFF then GUICtrlSetState(-1, $GUI_HIDE)
 
-	GUISetCoord($base_gui_width/1.39, 116)
-
-	GUICtrlCreateGroup("", 0, 0, $base_gui_width/3.78, 32)
-	GUICtrlSetResizing(-1, $GUI_DOCKRIGHT)
-	local $checkbox_search_verify = CreateCheckbox(_T("search + verify"), 3, 7)
-	GUICtrlSetResizing(-1, $GUI_DOCKRIGHT)
+	local $search_top = $groups_top + 4 * $row_height
+	GUICtrlCreateGroup("", $commands_left, $search_top, $commands_width, $row_height + 2 * $gap)
+	GUICtrlSetResizing(-1, $right_dock)
+	local $checkbox_search_verify = CreateCheckbox($captions[17], $commands_left + $gap, $search_top + $gap, $caption_widths[17] + $toggle_padding, $row_height)
+	GUICtrlSetResizing(-1, $right_dock)
 	if StringInStr($switches, "i") then GUICtrlSetState(-1, $ON)
 
-	GUISetCoord($base_gui_width/1.39, 154)
-
-	; local $button_run = GUICtrlCreateButton("&" & _T("do it now!"), 0, 0, $base_gui_width/3.7, 23, BitOr($BS_DEFPUSHBUTTON, $text_alignment), $reading_direction)
-	; local $button_run = GUICtrlCreateButton("&" & _T("do it now!"), 0, 0, $base_gui_width/3.7, 23, BitOr($BS_DEFPUSHBUTTON, BitShift($text_alignment, -8)), $reading_direction)
-	local $button_run = GUICtrlCreateButton("&" & _T("do it now!"), 0, 0, $base_gui_width/3.7, 23, $BS_DEFPUSHBUTTON, $reading_direction)
-	GUICtrlSetResizing(-1, $GUI_DOCKRIGHT)
+	local $button_run = GUICtrlCreateButton("&" & $captions[18], $commands_left, $base_gui_height - $row_height - $gap, $commands_width, $row_height, $BS_DEFPUSHBUTTON, $reading_direction)
+	GUICtrlSetResizing(-1, $right_dock)
+	AutoItSetOption("GUICoordMode", $old_coord_mode)
 
 	if $help_tips = $ON then
 
@@ -5035,10 +5120,10 @@ func DoVerifyOptions()
 			local $cursor_info = GUIGetCursorInfo($GUI_Options)
 			if $last_hover_ctrl <> $cursor_info[4] then
 				if IsArray($cursor_info) and $cursor_info[4] = $input_log_folder then
-					ControlMove($GUI_Options, "checksum", $input_log_folder, default, default, 248)
+					ControlMove($GUI_Options, "checksum", $input_log_folder, default, default, $logging_width + $behaviour_width - $gap)
 					GUICtrlSetState($checkbox_shutdown, $GUI_HIDE)
 				else
-					ControlMove($GUI_Options, "checksum", $input_log_folder, default, default, 99)
+					ControlMove($GUI_Options, "checksum", $input_log_folder, default, default, $log_field_width)
 					GUICtrlSetState($checkbox_shutdown, $GUI_SHOW)
 				endif
 			endif
@@ -5168,6 +5253,10 @@ func DoVerifyOptions()
 		endswitch
 
 	wend
+
+	AutoItSetOption("GUIOnEventMode", $old_gui_mode)
+	GUIDelete($GUI_Options)
+
 endfunc
 
 ;						cro b:\
@@ -5746,19 +5835,32 @@ func NothingToDo()
 	AutoItSetOption("GUICoordMode", 1)
 
 	local $margin = 15
-	local $gui_height = 160
-	local $gui_width = 500
+	local $text_scale = ChecksumDialogTextScale()
+	local $gui_height = Ceiling(160 * $text_scale)
+	local $gui_width = Ceiling(500 * $text_scale)
 
 	$GUI_nothing_to_do = GUICreate($my_msg, $gui_width, $gui_height, -1, -1, $WS_CAPTION, $WS_EX_TOPMOST)
 	GUISetIcon($exe_path, 0, $GUI_nothing_to_do)
+	GUISetFont(9 * $text_scale, default, default, "Segoe UI", $GUI_nothing_to_do)
 	$full_text = _T("No explorer context menu, no drag-and-drop, no command-line, nothing.\n\nIf you are not using the explorer context menu actions (or drag and drop) you need to provide\ncommand-line switches.")
-	local $info_text = $my_msg & @LF & @LF & _L($full_text)
-	GUICtrlCreateLabel($info_text, $margin, $margin - 5, $gui_width - 5, $gui_height - 40, $text_alignment, BitOr($GUI_WS_EX_PARENTDRAG, $reading_direction))
-	local $btn_help = GUICtrlCreateButton(_T("Get More Help!"), 10, $gui_height - 28, 110, 22)
+	; Preserve paragraph breaks and let the label wrap the translated lines.
+	local $info_text = $my_msg & @LF & @LF & StringRegExpReplace(_L($full_text), "(?<!\n)\n(?!\n)", " ")
+	local $label_top = $margin - 5
+	local $label_width = $gui_width - 2 * $margin
+	local $label = GUICtrlCreateLabel($info_text, $margin, $label_top, $label_width, 1, $text_alignment, BitOr($GUI_WS_EX_PARENTDRAG, $reading_direction))
+	local $label_height = FitLabelHeight($label, $info_text, $label_width)
+	GUICtrlSetPos($label, $margin, $label_top, $label_width, $label_height)
+	local $required_height = $label_top + $label_height + $margin + Ceiling(28 * $text_scale)
+	if $required_height > $gui_height then
+		local $outer = WinGetPos($GUI_nothing_to_do)
+		WinMove($GUI_nothing_to_do, "", $outer[0], $outer[1], $outer[2], $outer[3] + $required_height - $gui_height)
+		$gui_height = $required_height
+	endif
+	local $btn_help = GUICtrlCreateButton(_T("Get More Help!"), 10, $gui_height - Ceiling(28 * $text_scale), Ceiling(110 * $text_scale), Ceiling(22 * $text_scale))
 	GUICtrlSetTip(-1, _T("Visit checksum tricks and tips page"))
-	local $btn_simple = GUICtrlCreateButton(_T("Launch simple checksum"), 125, $gui_height - 28, 150, 22)
+	local $btn_simple = GUICtrlCreateButton(_T("Launch simple checksum"), Ceiling(125 * $text_scale), $gui_height - Ceiling(28 * $text_scale), Ceiling(150 * $text_scale), Ceiling(22 * $text_scale))
 	GUICtrlSetTip(-1, _T("Launch simple checksum"))
-	local $btn_cancel = GUICtrlCreateButton(_T("Cancel"), $gui_width - 100, $gui_height - 28, 95, 22)
+	local $btn_cancel = GUICtrlCreateButton(_T("Cancel"), $gui_width - Ceiling(100 * $text_scale), $gui_height - Ceiling(28 * $text_scale), Ceiling(95 * $text_scale), Ceiling(22 * $text_scale))
 	GUICtrlSetTip(-1, _T("Close this information window."))
 
 	debugGUICtrlBorders($GUI_nothing_to_do)
@@ -5827,7 +5929,9 @@ func ShowSplash()
 	local $my_title = " " & _T("Welcome to checksum!") & " "
 	if $is_upgrade == $ON then $my_title = " " & _T("checksum UPGRADED!") & " "
 
-	local $gui = GUICreate($my_title, 190, 44, -1, -1, default, BitOr($WS_EX_TOOLWINDOW, $WS_EX_TOPMOST))
+	local $text_scale = ChecksumDialogTextScale()
+	local $gui = GUICreate($my_title, Ceiling(190 * $text_scale), Ceiling(44 * $text_scale), -1, -1, default, BitOr($WS_EX_TOOLWINDOW, $WS_EX_TOPMOST))
+	GUISetFont(9 * $text_scale, default, default, "Segoe UI", $gui)
 	local $splash_icon = GUICtrlCreateIcon($exe_path, 0, 8, 6, 32, 32)
 	; Request the 32px image from the EXE's first icon group (zero-based index).
 	local $splash_icon_handle = _WinAPI_ShellExtractIcon($exe_path, 0, 32, 32)
@@ -5881,8 +5985,9 @@ func DoAboutBox($parent_gui=NULL)
 	local $pos_x = -1
 	local $pos_y = -1
 	local $top_offset = 0
-	local $dialog_height = 105
-	local $dialog_width = 265
+	local $text_scale = ChecksumDialogTextScale()
+	local $dialog_height = Ceiling(105 * $text_scale)
+	local $dialog_width = Ceiling(265 * $text_scale)
 	local $text_left = 80
 	local $had_nothing_to_do = false
 
@@ -5904,6 +6009,7 @@ func DoAboutBox($parent_gui=NULL)
 	local $prev_coord_mode = AutoItSetOption("GUICoordMode", 1)
 
 	$GUI_about = GUICreate(" " & _T("About") & " " & $app_name & "..", $dialog_width, $dialog_height + $top_offset, $pos_x, $pos_y, default, BitOR($WS_EX_TOOLWINDOW, $WS_EX_TOPMOST))
+	GUISetFont(9 * $text_scale, default, default, "Segoe UI", $GUI_about)
 	$my_msg = _T("from")
 
 	local $label_app_info = GUICtrlCreateLabel($app_name & " v" & $VERSION & @LF & $my_msg & " corz.org", $text_left, 8, default, default, $text_alignment, $reading_direction)
@@ -5916,23 +6022,23 @@ func DoAboutBox($parent_gui=NULL)
 	endif
 	
 	$my_msg = _T("Do you want to visit the checksum\nweb page at this time?")
-	local $label_question = GUICtrlCreateLabel(_L($my_msg), $text_left, $top_offset + 40, default, default, $text_alignment, $reading_direction)
+	local $label_question = GUICtrlCreateLabel(_L($my_msg), $text_left, $top_offset + Ceiling(40 * $text_scale), default, default, $text_alignment, $reading_direction)
 	$my_msg = _T("No, not now")
-	local $btn_no = GUICtrlCreateButton(_L($my_msg), 10, $top_offset + 80, 95, 22)
+	local $btn_no = GUICtrlCreateButton(_L($my_msg), 10, $top_offset + Ceiling(80 * $text_scale), Ceiling(95 * $text_scale), Ceiling(22 * $text_scale))
 
 	$my_msg = _T("The other button is the one you want to click!")
 	SetPaddedTip(-1, $my_msg)
 
 	$my_msg = _T("Yes, let's do it!")
-	local $btn_yes = GUICtrlCreateButton($my_msg, $dialog_width - 104, $top_offset + 80, 95, 22)
+	local $btn_yes = GUICtrlCreateButton($my_msg, $dialog_width - Ceiling(104 * $text_scale), $top_offset + Ceiling(80 * $text_scale), Ceiling(95 * $text_scale), Ceiling(22 * $text_scale))
 
 	$my_msg = _T("The link will open in your system default browser")
 	SetPaddedTip(-1, $my_msg)
 	local $arch_text = "x86"
 	if @AutoItX64 = 1 then $arch_text = "x64"
-	local $label_arch = GUICtrlCreateLabel($arch_text, $dialog_width - 19, 1, 18, 12, $text_alignment, $reading_direction)
+	local $label_arch = GUICtrlCreateLabel($arch_text, $dialog_width - Ceiling(19 * $text_scale), 1, Ceiling(18 * $text_scale), Ceiling(12 * $text_scale), $text_alignment, $reading_direction)
 
-	GUICtrlSetFont(-1, 8, 200, 0, "Lucida Console")
+	GUICtrlSetFont(-1, 8 * $text_scale, 200, 0, "Lucida Console")
 	debugGUICtrlBorders($GUI_about)
 	GUISetState()
 
@@ -6000,14 +6106,40 @@ func ShowBadFilesBox($title, $text, $width=800, $height=800, $prompt="Click OK t
 
 	$prompt = _T($prompt) & ".."
 
+	local $text_scale = ChecksumDialogTextScale()
 	local $GUI_InputDialog = GUICreate($title, $width, $height, -1, -1, BitOr($WS_DLGFRAME, $WS_SIZEBOX))
 
-	$dialog_input = GUICtrlCreateInput($text, 5, 5, $width - 10, $height - 55, BitOr(4, 64))
+	GUISetFont(9 * $text_scale, default, default, "Segoe UI", $GUI_InputDialog)
+	local $prompt_label = GUICtrlCreateLabel($prompt, 0, 0, default, default, $text_alignment, $reading_direction)
+	local $prompt_rect = ControlGetPos($GUI_InputDialog, "", $prompt_label)
+	local $ok_caption = _T("OK")
+	local $ok_measure = GUICtrlCreateLabel($ok_caption, 0, 0)
+	local $ok_rect = ControlGetPos($GUI_InputDialog, "", $ok_measure)
+	GUICtrlDelete($ok_measure)
+
+	local $margin = Ceiling($ok_rect[3] / 2)
+	local $button_width = _Max(3 * $ok_rect[3], $ok_rect[2] + 2 * $margin)
+	local $button_height = $ok_rect[3] + $margin
+	local $footer_height = _Max($button_height, $prompt_rect[3])
+	local $min_width = $prompt_rect[2] + $button_width + 3 * $margin
+	local $min_height = $footer_height + $ok_rect[3] + 3 * $margin
+	local $outer = WinGetPos($GUI_InputDialog)
+	local $client = WinGetClientSize($GUI_InputDialog)
+	local $frame_width = $outer[2] - $client[0]
+	local $frame_height = $outer[3] - $client[1]
+	$width = _Max($width, $min_width)
+	$height = _Max($height, $min_height)
+	if $width <> $client[0] or $height <> $client[1] then _
+		WinMove($GUI_InputDialog, "", $outer[0] - Int(($width - $client[0]) / 2), $outer[1] - Int(($height - $client[1]) / 2), $width + $frame_width, $height + $frame_height)
+	RegisterMinMax($GUI_InputDialog, $min_width + $frame_width, $min_height + $frame_height)
+
+	local $footer_top = $height - $margin - $footer_height
+	$dialog_input = GUICtrlCreateInput($text, $margin, $margin, $width - 2 * $margin, $footer_top - 2 * $margin, BitOr(4, 64))
 	GUICtrlSetResizing(-1, $GUI_DOCKTOP + $GUI_DOCKBOTTOM + $GUI_DOCKLEFT + $GUI_DOCKRIGHT)
-	GUICtrlCreateLabel($prompt, 5, $height - 45, $width - 60, default, $text_alignment, $reading_direction)
-	GUICtrlSetResizing(-1, $GUI_DOCKBOTTOM + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
-	local $ok_btn = GUICtrlCreateButton(_T("OK"), $width - 50, $height - 47, 45, 22, $BS_CENTER, $reading_direction)
-	GUICtrlSetResizing(-1, $GUI_DOCKBOTTOM + $GUI_DOCKRIGHT + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
+	GUICtrlSetPos($prompt_label, $margin, $footer_top + Int(($footer_height - $prompt_rect[3]) / 2), $prompt_rect[2], $prompt_rect[3])
+	GUICtrlSetResizing($prompt_label, $GUI_DOCKBOTTOM + $GUI_DOCKLEFT + $GUI_DOCKSIZE)
+	local $ok_btn = GUICtrlCreateButton($ok_caption, $width - $margin - $button_width, $footer_top + Int(($footer_height - $button_height) / 2), $button_width, $button_height, $BS_CENTER, $reading_direction)
+	GUICtrlSetResizing($ok_btn, $GUI_DOCKBOTTOM + $GUI_DOCKRIGHT + $GUI_DOCKSIZE)
 
 	debugGUICtrlBorders($GUI_InputDialog)
 	GUISetState(@SW_SHOW)
@@ -6027,6 +6159,7 @@ func ShowBadFilesBox($title, $text, $width=800, $height=800, $prompt="Click OK t
 		if $input_timeout > 0 and TimerDiff($timer) / 1000 > $input_timeout then exitloop
 	wend
 
+	UnregisterMinMax($GUI_InputDialog)
 	GUIDelete($GUI_InputDialog)
 	AutoItSetOption("GUIOnEventMode", $opt_event)
 	AutoItSetOption("GUICoordMode", $opt_coord)
@@ -6051,6 +6184,15 @@ func EditFocusResetTimer($hwnd, $msg, $w_param, $l_param)
 endfunc
 
 
+; Reads Windows' accessibility text size for checksum's custom dialogs.
+; Returns the configured percentage as a multiplier, or 1 if unavailable.
+func ChecksumDialogTextScale()
+	local $text_scale = RegRead("HKCU\Software\Microsoft\Accessibility", "TextScaleFactor")
+	if @error or $text_scale < 100 then return 1
+	return $text_scale / 100
+endfunc
+
+
 ;
 ; ShowSyncDialog()
 
@@ -6061,31 +6203,45 @@ func ShowSyncDialog($title, $message, $allow_yes_all=false, $allow_no_all=false,
 	if $quiet_operation = $ON then return $sync_choice
 
 	local $opt_gui_on_event = AutoItSetOption("GUIOnEventMode", 0)
-	local $butt_offset_x = 70
-	local $gui_width = 460
-	if StringLen($message) > 180 then $gui_width = StringLen($message) * 2
-	if $gui_width < 460 then $gui_width = 460
-	local $gui_height = UBound(StringSplit($message, @LF)) * 20
+	local $opt_coord = AutoItSetOption("GUICoordMode", 1)
+	local $GUI_Sync = GUICreate($title, 460, 200)
+	local $text_scale = ChecksumDialogTextScale()
+	GUISetFont(9 * $text_scale, default, default, "Segoe UI", $GUI_Sync)
+	local $captions = [_T("Yes"), _T("Yes to All"), _T("No"), _T("No to All"), _StringProper(_T("synchronize")), _T("Abort")]
+	local $sample = GUICtrlCreateLabel($captions[0], 0, 0)
+	local $sample_rect = ControlGetPos($GUI_Sync, "", $sample)
+	GUICtrlDelete($sample)
+	local $line_height = $sample_rect[3]
+	local $margin = $line_height, $button_gap = Ceiling($line_height / 2)
+	local $button_height = $line_height + $button_gap
+	local $label = GUICtrlCreateLabel($message, $margin, $margin, default, default, $text_alignment, $reading_direction)
+	local $label_rect = ControlGetPos($GUI_Sync, "", $label)
+	local $button_y = $label_rect[1] + $label_rect[3] + $margin
+	local $visible = [true, $allow_yes_all and not $hide_all_options, true, $allow_no_all and not $hide_all_options, $allow_sync, true]
+	local $buttons[6]
+	local $button_x = $margin
 
-	global $dialog_pos_x = (@DesktopWidth / 2) - ($gui_width / 2)
-	global $dialog_pos_y = (@DesktopHeight / 2) - ($gui_height)
+	for $i = 0 to UBound($captions) - 1
+		if not $visible[$i] then continueloop
+		local $caption = GUICtrlCreateLabel($captions[$i], 0, 0)
+		local $caption_rect = ControlGetPos($GUI_Sync, "", $caption)
+		GUICtrlDelete($caption)
+		local $button_width = _Max(3 * $line_height, $caption_rect[2] + 2 * $button_gap)
+		if $i = UBound($captions) - 1 then $button_x = _Max($button_x, ($label_rect[2] + 2 * $margin) - $margin - $button_width)
+		local $style = default
+		if $i = 2 then $style = $BS_DEFPUSHBUTTON
+		$buttons[$i] = GUICtrlCreateButton($captions[$i], $button_x, $button_y, $button_width, $button_height, $style)
+		$button_x += $button_width + $button_gap
+	next
 
-	local $GUI_Sync = GUICreate($title, $gui_width, $gui_height, $dialog_pos_x, $dialog_pos_y)
-	GUICtrlCreateLabel($message, 15, 10, default, default, $text_alignment, $reading_direction)
-	local $butt_yes = GUICtrlCreateButton(_T("Yes"), -5, $gui_height - 37, 60, 25)
-	local $butt_yes_all = "999"
-	if $allow_yes_all and $hide_all_options = false then $butt_yes_all = GUICtrlCreateButton(_T("Yes to All"), $butt_offset_x, 0, 60, 25)
-
-	local $butt_no = GUICtrlCreateButton(_T("No"), $butt_offset_x, 0, 60, 25, $BS_DEFPUSHBUTTON)
-	local $butt_no_all = "999"
-
-	if $allow_no_all and $hide_all_options = false then $butt_no_all = GUICtrlCreateButton(_T("No to All"), $butt_offset_x, 0, 60, 25, $BS_DEFPUSHBUTTON)
-	if $allow_sync then local $butt_sync = GUICtrlCreateButton(_StringProper(_T("synchronize")), $butt_offset_x + 10, 0, 70, 25, $BS_DEFPUSHBUTTON)
-
-	GUISetCoord($gui_width - 65, $gui_height - 28)
-
-	local $butt_abort = GUICtrlCreateButton(_T("Abort"), -1, -1, 60, 25)
-
+	local $client = WinGetClientSize($GUI_Sync)
+	local $window = WinGetPos($GUI_Sync)
+	local $gui_width = $button_x - $button_gap + $margin + $window[2] - $client[0]
+	local $gui_height = $button_y + $button_height + $margin + $window[3] - $client[1]
+	global $dialog_pos_x = (@DesktopWidth - $gui_width) / 2
+	global $dialog_pos_y = (@DesktopHeight / 2) - $gui_height
+	WinMove($GUI_Sync, "", $dialog_pos_x, $dialog_pos_y, $gui_width, $gui_height)
+	AutoItSetOption("GUICoordMode", $opt_coord)
 	debugGUICtrlBorders($GUI_Sync)
 	GUISetState(@SW_SHOW)
 
@@ -6095,17 +6251,17 @@ func ShowSyncDialog($title, $message, $allow_yes_all=false, $allow_no_all=false,
 	do
 		$msg = GUIGetMsg()
 		select
-			case $msg = $butt_abort or $msg = $GUI_EVENT_CLOSE
+			case $msg = $buttons[5] or $msg = $GUI_EVENT_CLOSE
 				exitloop
-			case $msg = $butt_yes
+			case $msg = $buttons[0]
 				$user_choice = "yes"
-			case $msg = $butt_yes_all
+			case $visible[1] and $msg = $buttons[1]
 				$user_choice = "yes_all"
-			case $msg = $butt_no
+			case $msg = $buttons[2]
 				$user_choice = "no"
-			case $msg = $butt_no_all
+			case $visible[3] and $msg = $buttons[3]
 				$user_choice = "no_all"
-			case $allow_sync and $msg = $butt_sync
+			case $allow_sync and $msg = $buttons[4]
 				$user_choice = "sync"
 		endselect
 		sleep(10)
@@ -6801,6 +6957,43 @@ endfunc
 
 
 
+; Prompts for one line of text at the Windows accessibility text size.
+; Takes the title, prompt, initial input, base width and optional parent.
+; Fits the wrapped prompt and controls using their rendered font.
+; Returns the field text on OK or "" on cancellation.
+func ChecksumTextInput($title, $prompt, $initial_text, $base_width, $parent_gui=default)
+	local $event_mode = AutoItSetOption("GUIOnEventMode", 0)
+	local $coord_mode = AutoItSetOption("GUICoordMode", 1)
+	local $text_scale = ChecksumDialogTextScale()
+	local $dialog = GUICreate($title, Ceiling($base_width * $text_scale), 150, -1, -1, default, default, $parent_gui)
+	GUISetFont(9 * $text_scale, default, default, "Segoe UI", $dialog)
+	local $label = GUICtrlCreateLabel($prompt, 0, 0, 1, 1, $text_alignment, $reading_direction)
+	local $input = GUICtrlCreateInput($initial_text, 0, 0, 1, 1)
+	local $ok = GUICtrlCreateButton(_T("OK"), 0, 0, 1, 1, $BS_DEFPUSHBUTTON)
+	local $cancel = GUICtrlCreateButton(_T("Cancel"), 0, 0, 1, 1)
+	LayoutFancyInputBox($dialog, $label, $ok, $cancel, $input)
+	GUICtrlSetState($input, $GUI_FOCUS)
+	_GUICtrlEdit_SetSel($input, 0, -1)
+	GUISetState(@SW_SHOW, $dialog)
+
+	local $entry = ""
+	while true
+		switch GUIGetMsg()
+			case $GUI_EVENT_CLOSE, $cancel
+				exitloop
+			case $ok
+				$entry = GUICtrlRead($input)
+				exitloop
+		endswitch
+	wend
+
+	GUIDelete($dialog)
+	AutoItSetOption("GUICoordMode", $coord_mode)
+	AutoItSetOption("GUIOnEventMode", $event_mode)
+	return $entry
+endfunc
+
+
 ; Get version text from URL, with progress reporting, using InetRead()
 func CheckVersion($app_name, $check_url, $my_download_url, $my_ini_file, $ini_section, $current_version, $parent_gui=Default, $pause_parent=false)
 
@@ -6827,7 +7020,7 @@ func CheckVersion($app_name, $check_url, $my_download_url, $my_ini_file, $ini_se
 		if $pause_parent then HideWindow($pause_parent)
 		$my_msg = _T("Automatic Version Checking?")
 		$full_text = _T("can check online for a new version of itself.\nEnter the number of days between checks (0 to disable version checking).")
-		local $days_input = InputBox($my_msg, $app_name & " " & _L($full_text), "", " M", 400, 150, (@DesktopWidth / 2) - 200, (@DesktopHeight / 2) - 50, 0, $parent_gui)
+		local $days_input = StringStripWS(ChecksumTextInput($my_msg, $app_name & " " & StringReplace($full_text, "\n", " "), "", 400, $parent_gui), $STR_STRIP_ENDS)
 		if $pause_parent then ShowWindow($pause_parent)
 		if $days_input = "" then return false
 		IniWrite($my_ini_file, $ini_section, "version_checking", Number($days_input))
@@ -6846,13 +7039,28 @@ func CheckVersion($app_name, $check_url, $my_download_url, $my_ini_file, $ini_se
 	else
 		$title_text = _T("Version Check (every [interval] days)", "[interval]", $check_interval)
 	endif
-	ProgressOn($title_text, _T("Checking for new version.."))
-	ProgressSet(25)
+	local $coord_mode = AutoItSetOption("GUICoordMode", 1)
+	local $text_scale = ChecksumDialogTextScale()
+	local $margin = Ceiling(10 * $text_scale)
+	local $progress_width = Ceiling(300 * $text_scale)
+	local $progress_gui = GUICreate($title_text, $progress_width, 100, -1, -1, $WS_CAPTION, BitOr($WS_EX_TOOLWINDOW, $WS_EX_TOPMOST))
+	GUISetFont(9 * $text_scale, default, default, "Segoe UI", $progress_gui)
+	local $status = _T("Checking for new version..")
+	local $status_label = GUICtrlCreateLabel($status, $margin, $margin, $progress_width - 2 * $margin, 1, $text_alignment, $reading_direction)
+	local $status_height = FitLabelHeight($status_label, $status, $progress_width - 2 * $margin)
+	GUICtrlSetPos($status_label, $margin, $margin, $progress_width - 2 * $margin, $status_height)
+	local $progress = GUICtrlCreateProgress($margin, $status_height + 2 * $margin, $progress_width - 2 * $margin, $margin)
+	local $outer = WinGetPos($progress_gui)
+	local $client = WinGetClientSize($progress_gui)
+	WinMove($progress_gui, "", $outer[0], $outer[1], $outer[2], $outer[3] - $client[1] + $status_height + 4 * $margin)
+	AutoItSetOption("GUICoordMode", $coord_mode)
+	GUICtrlSetData($progress, 25)
+	GUISetState(@SW_SHOW, $progress_gui)
 
 	$check_url &= "&frequency=" & $check_interval & "&current=" & $current_version
 	local $version_response = InetRead($check_url, ($INET_FORCERELOAD + $INET_FORCEBYPASS))
 	if @error <> 0 then
-		ProgressOff()
+		GUIDelete($progress_gui)
 		$my_msg = _T("Version Check FAILED!")
 		$full_text = _T("Could not determine version online.\nCheck your firewall.")
 		MsgBox($MB_ICONERROR, $my_msg, _L($full_text))
@@ -6860,22 +7068,22 @@ func CheckVersion($app_name, $check_url, $my_download_url, $my_ini_file, $ini_se
 	endif
 
 	$version_response = BinaryToString($version_response)
-	ProgressSet(50)
+	GUICtrlSetData($progress, 50)
 	IniWrite($my_ini_file, $ini_section, "version_checked", _NowCalc())
-	ProgressSet(75)
+	GUICtrlSetData($progress, 75)
 
 	local $compare_result = _VersionCompare($current_version, $version_response)
 	switch $compare_result
 		case 0, 1
-			ProgressSet(100)
-			ProgressOff()
+			GUICtrlSetData($progress, 100)
+			GUIDelete($progress_gui)
 			return false
 		case -1
-			ProgressSet(100)
+			GUICtrlSetData($progress, 100)
 			$my_msg = _T("New Version Available")
 			$full_text = _T("A newer version of checksum is available.\nWould you like to visit the download page?")
 			local $msg_box_choice = MsgBox($MB_YESNO + $MB_ICONWARNING + $MB_TOPMOST, $my_msg, _L($full_text))
-			ProgressOff()
+			GUIDelete($progress_gui)
 			switch $msg_box_choice
 				case $IDYES
 					ShellExecute($my_download_url)
@@ -7135,59 +7343,11 @@ endfunc
 #AutoIt3Wrapper_Run_After=copy /Y "..\..\Setup\Source\Setup.exe" 				"..\checksum\Setup.exe"
 
 
+#AutoIt3Wrapper_Run_After=C:\UNIX\Python312\python.exe "C:\Users\Dad\Documents\Scripts\Python\stamp-setup-version.py" "%scriptdir%\..\checksum\Files\setup.ini" "%fileversion%" 2>&1
 #AutoIt3Wrapper_Run_After=7z.exe a -mx7 -tzip "..\checksum.zip" "..\checksum\"
-#AutoIt3Wrapper_Run_After=if exist "..\checksum.zip" if exist "..\checksum.hash" del /a "..\checksum.hash"
+#AutoIt3Wrapper_Run_After=del /a "..\checksum.hash"
 #AutoIt3Wrapper_Run_After=checksum.exe cq-t-h "..\checksum.zip"
 
-
-; ; ;::dev::..
-; ; ; You can probably comment-out this entire next section.
-; ; ; It relates to building the distribution and source packages.
-; ; ;
-; ; ; It has some useful commands for your reference, though.
-; ; ;
-; ; ; It should be noted, the copies of cel.au3, etc., that I keep in my Resources
-; ; ; directory, are hard links to my master files. if you are unfamiliar with the
-; ; ; wonders of hard (and symbolic) links, see here:
-; ; ; https://schinagl.priv.at/nt/hardlinkshellext/linkshellextension.html
-; ; ; Only one version of the files exists. The others, like the ones in here are
-; ; ; "sorta shortcuts that work just like the originals". Check it out.
-; ; ;
-; ; ; checksum beta package..
-; ; ; Move latest binaries, etc. to distro folder (out of the way of the source)..
-; ; #AutoIt3Wrapper_Run_After=mkdir "..\checksum"
-; ; #AutoIt3Wrapper_Run_After=mkdir "..\checksum\Info"
-; #AutoIt3Wrapper_Run_After=move /Y "%outx64%" 							"..\checksum.exe"
-; ; #AutoIt3Wrapper_Run_After=copy ".\Resources\QuickStart.txt" 			"..\checksum\QuickStart.txt"
-; ; #AutoIt3Wrapper_Run_After=copy ".\Resources\checksum.ini" 					"..\checksum\Info\checksum.ini"
-; ; #AutoIt3Wrapper_Run_After=copy ".\Itstory.txt" 							"..\checksum\Info\Itstory.txt"
-; ; #AutoIt3Wrapper_Run_After=copy ".\Resources\About This Folder.txt" 		"..\checksum\Info\About This Folder.txt"
-; ; #AutoIt3Wrapper_Run_After=copy "..\..\Free Software License.txt" 		"..\checksum\Info\Free Software License.txt"
-; ; ; Source pack update...
-; ; #AutoIt3Wrapper_Run_After=mkdir "..\checksum source pack"
-; ; #AutoIt3Wrapper_Run_After=mkdir "..\checksum source pack\Resources"
-; ; #AutoIt3Wrapper_Run_After=copy "%in%" 									"..\checksum source pack\%scriptfile%.au3"
-; ; #AutoIt3Wrapper_Run_After=copy ".\Itstory.txt" 							"..\checksum source pack\Resources\Itstory.txt"
-; ; #AutoIt3Wrapper_Run_After=copy ".\Resources\cel.au3" 					"..\checksum source pack\Resources\cel.au3"
-; ; #AutoIt3Wrapper_Run_After=copy ".\Resources\EditFind.au3" 				"..\checksum source pack\Resources\EditFind.au3"
-; ; #AutoIt3Wrapper_Run_After=copy ".\Resources\checksum.ini" 					"..\checksum source pack\Resources\checksum.ini"
-; ; #AutoIt3Wrapper_Run_After=copy ".\Resources\checksum.png" 					"..\checksum source pack\Resources\checksum.png"
-; ; #AutoIt3Wrapper_Run_After=copy ".\Resources\About Resources.txt" 		"..\checksum source pack\Resources\About Resources.txt"
-; ; #AutoIt3Wrapper_Run_After=copy ".\Resources\QuickStart.txt" 			"..\checksum source pack\Resources\QuickStart.txt"
-; ; #AutoIt3Wrapper_Run_After=copy "..\..\Free Software License.txt" 		"..\checksum source pack\Resources\Free Software License.txt
-; ; ;
-; ; #AutoIt3Wrapper_Run_After=Xcopy ".\Resources\Icons" 					"..\checksum source pack\Resources\Icons"  /E /H /C /I
-; ; #AutoIt3Wrapper_Run_After=Xcopy "..\..\Resources\Notepad++Goodies" 			"..\checksum source pack\Resources\Notepad++Goodies"  /E /H /C /I
-; ;
-; ;
-
-
-; RELEASE..
-; Create zips..
-; #AutoIt3Wrapper_Run_After=7z.exe a -mx7 -tzip "..\checksum source pack v%fileversion%.zip" "..\checksum source pack\"
-; Hash..
-#AutoIt3Wrapper_Run_After=if exist "..\checksum source pack v%fileversion%.zip" if exist "..\checksum source pack v%fileversion%.hash" del /a "..\checksum source pack v%fileversion%.hash"
-#AutoIt3Wrapper_Run_After=checksum.exe cq-t-h "..\checksum source pack v%fileversion%.zip"
 
 
 ; Backup this version of the source files to BackUp.zip..
@@ -7200,9 +7360,10 @@ endfunc
 ; Which is why I don't need to supply the full paths in these commands.
 
 
-; Finally, remove the (now-zipped) source files..
+; Finally, remove the (now-zipped) source & output files..
 #AutoIt3Wrapper_Run_After=del /f /q ".\%scriptfile% - %fileversion%.au3"
-; #AutoIt3Wrapper_Run_After=del /f /q ".\%scriptfile% - %fileversion%_stripped.au3"
+#AutoIt3Wrapper_Run_After=del /f /q ".\%scriptfile% - %fileversion%_stripped.au3"
+#AutoIt3Wrapper_Run_After=del /f /q "%outx64%"
 
 
 

@@ -1,6 +1,7 @@
 #include-once
 #include "corzCrypto.au3"
 
+; WinMail.au3 v0.0.1
 ; Mail functions for checksum.
 ; (c) corz.org 2005->
 
@@ -159,7 +160,7 @@ endfunc
 func ShowMailPreferencesDialog()
 
 	local $opt_gui_on_event = AutoItSetOption("GUIOnEventMode", 0)
-	local $opt_gui_coord = AutoItSetOption("GUICoordMode", 0)
+	local $opt_gui_coord = AutoItSetOption("GUICoordMode", 1)
 	local $win_pos = WinGetPos($GUI_Options)
 	local $pos_x, $pos_y
 
@@ -176,66 +177,133 @@ func ShowMailPreferencesDialog()
 	HideWindow($GUI_Options)
 	LoadMailPresetFromIni()
 
-	local $gui_width = 256
-	local $gui_height = 332
-	local $row_offset = 26
-	local $control_height = 21
-	local $label_width = 75
-	local $input_width = 170
-
-	local $gui_handle = GUICreate("Mail-On-Fail Preferences", $gui_width, $gui_height, $pos_x, $pos_y, _
+	local $text_scale = ChecksumDialogTextScale()
+	local $gui_handle = GUICreate("Mail-On-Fail Preferences", 256, 332, $pos_x, $pos_y, _
 		Bitor($WS_MINIMIZEBOX, $WS_CAPTION, $WS_POPUP, $WS_SYSMENU, $WS_SIZEBOX), Bitor($WS_EX_TOOLWINDOW, $WS_EX_ACCEPTFILES), $GUI_Options)
+	GUISetFont(9 * $text_scale, default, default, "Segoe UI", $gui_handle)
+	local $intro = "checksum can email you about hash failures.."
+	local $labels = ["Mail Server:", "User:", "Password:", "Name:", "From:", "to:", "Priority: ", "CC: ", "BCC: ", "SMTP Port: ", "Attachments: ", "Mail Preset:"]
+	local $ssl_caption = "Use SSL: ", $ntlm_caption = "NTLM: ", $resend_caption = "ReSend on SMTP Failure: ", $retries_caption = "Max Retries: "
+	local $measure = GUICtrlCreateLabel("", 0, 0, 1, 1)
+	local $line_height = FitLabelHeight($measure, "Ag", 100)
+	local $gap = Ceiling($line_height / 2)
+	local $control_height = $line_height + $gap
+	local $row_offset = $control_height + Ceiling($gap / 2)
+	local $label_width = 0
+	for $i = 0 to UBound($labels) - 1
+		$label_width = _Max($label_width, FitLabelWidth($measure, $labels[$i], @DesktopWidth, $gap))
+	next
+	local $toggle_padding = $line_height + $gap
+	local $port_width = FitLabelWidth($measure, "65535", @DesktopWidth, 2 * $gap)
+	local $ssl_width = FitLabelWidth($measure, $ssl_caption, @DesktopWidth, $toggle_padding)
+	local $ntlm_width = FitLabelWidth($measure, $ntlm_caption, @DesktopWidth, $toggle_padding)
+	local $resend_width = FitLabelWidth($measure, $resend_caption, @DesktopWidth, $toggle_padding)
+	local $retries_width = FitLabelWidth($measure, $retries_caption, @DesktopWidth, $gap)
+	local $retry_input_width = FitLabelWidth($measure, "999", @DesktopWidth, 2 * $gap)
+	local $preset_width = FitLabelWidth($measure, "Mail Preset: ", @DesktopWidth, $line_height + 2 * $gap)
+	local $button_width = _Max(FitLabelWidth($measure, "Test", @DesktopWidth, 3 * $gap), FitLabelWidth($measure, "Save", @DesktopWidth, 3 * $gap))
+	local $input_width = _Max(Ceiling(170 * $text_scale), $port_width + $ssl_width + $ntlm_width + 2 * $gap)
+	$input_width = _Max($input_width, $preset_width + $button_width + $gap)
+	local $gui_width = 2 * $gap + _Max($label_width + $input_width, $resend_width + $retries_width + $retry_input_width + $gap)
+	$input_width = $gui_width - $label_width - 2 * $gap
+	local $intro_height = FitLabelHeight($measure, $intro, $gui_width - 2 * $gap)
+	GUICtrlDelete($measure)
+	local $first_row = $intro_height + 2 * $gap
+	local $gui_height = $first_row + 12 * $row_offset + $control_height + $gap
+	local $field_left = $gap + $label_width
+	local $left_dock = $GUI_DOCKTOP + $GUI_DOCKLEFT + $GUI_DOCKSIZE
+	local $field_dock = $GUI_DOCKTOP + $GUI_DOCKLEFT + $GUI_DOCKRIGHT + $GUI_DOCKHEIGHT
+	local $outer = WinGetPos($gui_handle)
+	local $client = WinGetClientSize($gui_handle)
+	local $frame_width = $outer[2] - $client[0], $frame_height = $outer[3] - $client[1]
+	WinMove($gui_handle, "", _Max(0, _Min($outer[0], @DesktopWidth - $gui_width - $frame_width)), _
+		_Max(0, _Min($outer[1], @DesktopHeight - $gui_height - $frame_height)), $gui_width + $frame_width, $gui_height + $frame_height)
+	RegisterMinMax($gui_handle, $gui_width + $frame_width, $gui_height + $frame_height)
 	GUIRegisterMsg($WM_DROPFILES, "HandleDragDropFiles")
 	WinSetOntop($gui_handle, "", 1)
 
-	GUICtrlCreateLabel("checksum can email you about hash failures..", 7, 8, $gui_width - 7, 32)
-	local $label_server = GUICtrlCreateLabel("Mail Server:", 0, 27, $label_width, $control_height)
-	global $input_smtp_host = GUICtrlCreateInput($smtp_server, $label_width, -4, $input_width, $control_height)
-	local $label_user = GUICtrlCreateLabel("User:", -$label_width, $row_offset, $label_width, $control_height)
-	global $input_mail_username = GUICtrlCreateInput($mail_user, $label_width, -4, $input_width, $control_height)
-	local $label_pass = GUICtrlCreateLabel("Password:", -$label_width, $row_offset, $label_width, $control_height)
-	global $input_mail_password = GUICtrlCreateInput($mail_pass, $label_width, -4, $input_width, $control_height, Bitor($ES_LEFT, $ES_AUTOHSCROLL, $ES_PASSWORD))
-	local $label_name = GUICtrlCreateLabel("Name:", -$label_width, $row_offset, $label_width, $control_height)
-	global $input_display_name = GUICtrlCreateInput($from_name, $label_width, -4, $input_width, $control_height)
-	local $label_from = GUICtrlCreateLabel("From:", -$label_width, $row_offset, $label_width, $control_height)
-	global $input_from_address = GUICtrlCreateInput($from_address, $label_width, -4, $input_width, $control_height)
-	local $label_to = GUICtrlCreateLabel("to:", -$label_width, $row_offset, $label_width, $control_height)
-	global $input_to_recipients = GUICtrlCreateInput($to_address, $label_width, -4, $input_width, $control_height)
-	local $label_priority = GUICtrlCreateLabel("Priority: ", -$label_width, $row_offset, $label_width, $control_height)
-	global $mail_priority_input = GUICtrlCreateInput($mail_priority, $label_width, -4, $input_width, $control_height)
-	local $label_cc = GUICtrlCreateLabel("CC: ", -$label_width, $row_offset, $label_width, $control_height)
-	global $input_cc_recipients = GUICtrlCreateInput($cc_add, $label_width, -4, $input_width, $control_height)
-	local $label_bcc = GUICtrlCreateLabel("BCC: ", -$label_width, $row_offset, $label_width, $control_height)
-	global $input_bcc_recipients = GUICtrlCreateInput($bcc_add, $label_width, -4, $input_width, $control_height)
-	local $label_port = GUICtrlCreateLabel("SMTP Port: ", -$label_width, $row_offset, $label_width, $control_height)
-	global $input_smtp_port = GUICtrlCreateInput($mail_port, $label_width, -4, 40, $control_height, Bitor($WS_TABSTOP, $ES_NUMBER))
-	global $checkbox_ssl_enabled = GUICtrlCreateCheckbox("Use SSL: ", 45, -1, 65, $control_height, Bitor($BS_RIGHTBUTTON, $WS_TABSTOP, $BS_AUTOCHECKBOX))
+	GUICtrlCreateLabel($intro, $gap, $gap, $gui_width - 2 * $gap, $intro_height)
+	GUICtrlSetResizing(-1, $left_dock)
+	local $label_server = GUICtrlCreateLabel($labels[0], $gap, $first_row, $label_width, $control_height)
+	GUICtrlSetResizing(-1, $left_dock)
+	global $input_smtp_host = GUICtrlCreateInput($smtp_server, $field_left, $first_row, $input_width, $control_height)
+	GUICtrlSetResizing(-1, $field_dock)
+	local $label_user = GUICtrlCreateLabel($labels[1], $gap, $first_row + 1 * $row_offset, $label_width, $control_height)
+	GUICtrlSetResizing(-1, $left_dock)
+	global $input_mail_username = GUICtrlCreateInput($mail_user, $field_left, $first_row + 1 * $row_offset, $input_width, $control_height)
+	GUICtrlSetResizing(-1, $field_dock)
+	local $label_pass = GUICtrlCreateLabel($labels[2], $gap, $first_row + 2 * $row_offset, $label_width, $control_height)
+	GUICtrlSetResizing(-1, $left_dock)
+	global $input_mail_password = GUICtrlCreateInput($mail_pass, $field_left, $first_row + 2 * $row_offset, $input_width, $control_height, Bitor($ES_LEFT, $ES_AUTOHSCROLL, $ES_PASSWORD))
+	GUICtrlSetResizing(-1, $field_dock)
+	local $label_name = GUICtrlCreateLabel($labels[3], $gap, $first_row + 3 * $row_offset, $label_width, $control_height)
+	GUICtrlSetResizing(-1, $left_dock)
+	global $input_display_name = GUICtrlCreateInput($from_name, $field_left, $first_row + 3 * $row_offset, $input_width, $control_height)
+	GUICtrlSetResizing(-1, $field_dock)
+	local $label_from = GUICtrlCreateLabel($labels[4], $gap, $first_row + 4 * $row_offset, $label_width, $control_height)
+	GUICtrlSetResizing(-1, $left_dock)
+	global $input_from_address = GUICtrlCreateInput($from_address, $field_left, $first_row + 4 * $row_offset, $input_width, $control_height)
+	GUICtrlSetResizing(-1, $field_dock)
+	local $label_to = GUICtrlCreateLabel($labels[5], $gap, $first_row + 5 * $row_offset, $label_width, $control_height)
+	GUICtrlSetResizing(-1, $left_dock)
+	global $input_to_recipients = GUICtrlCreateInput($to_address, $field_left, $first_row + 5 * $row_offset, $input_width, $control_height)
+	GUICtrlSetResizing(-1, $field_dock)
+	local $label_priority = GUICtrlCreateLabel($labels[6], $gap, $first_row + 6 * $row_offset, $label_width, $control_height)
+	GUICtrlSetResizing(-1, $left_dock)
+	global $mail_priority_input = GUICtrlCreateInput($mail_priority, $field_left, $first_row + 6 * $row_offset, $input_width, $control_height)
+	GUICtrlSetResizing(-1, $field_dock)
+	local $label_cc = GUICtrlCreateLabel($labels[7], $gap, $first_row + 7 * $row_offset, $label_width, $control_height)
+	GUICtrlSetResizing(-1, $left_dock)
+	global $input_cc_recipients = GUICtrlCreateInput($cc_add, $field_left, $first_row + 7 * $row_offset, $input_width, $control_height)
+	GUICtrlSetResizing(-1, $field_dock)
+	local $label_bcc = GUICtrlCreateLabel($labels[8], $gap, $first_row + 8 * $row_offset, $label_width, $control_height)
+	GUICtrlSetResizing(-1, $left_dock)
+	global $input_bcc_recipients = GUICtrlCreateInput($bcc_add, $field_left, $first_row + 8 * $row_offset, $input_width, $control_height)
+	GUICtrlSetResizing(-1, $field_dock)
+	local $label_port = GUICtrlCreateLabel($labels[9], $gap, $first_row + 9 * $row_offset, $label_width, $control_height)
+	GUICtrlSetResizing(-1, $left_dock)
+	global $input_smtp_port = GUICtrlCreateInput($mail_port, $field_left, $first_row + 9 * $row_offset, $port_width, $control_height, Bitor($WS_TABSTOP, $ES_NUMBER))
+	GUICtrlSetResizing(-1, $left_dock)
+	local $ssl_left = $field_left + $port_width + $gap
+	global $checkbox_ssl_enabled = GUICtrlCreateCheckbox($ssl_caption, $ssl_left, $first_row + 9 * $row_offset, $ssl_width, $control_height, Bitor($BS_RIGHTBUTTON, $WS_TABSTOP, $BS_AUTOCHECKBOX))
+	GUICtrlSetResizing(-1, $left_dock)
 	if $mail_ssl = $ON then GUICtrlSetState(-1, $ON)
-	global $checkbox_ntlm_auth = GUICtrlCreateCheckbox("NTLM: ", 74, -1, 51, $control_height, Bitor($BS_RIGHTBUTTON, $WS_TABSTOP, $BS_AUTOCHECKBOX))
+	global $checkbox_ntlm_auth = GUICtrlCreateCheckbox($ntlm_caption, $ssl_left + $ssl_width + $gap, $first_row + 9 * $row_offset, $ntlm_width, $control_height, Bitor($BS_RIGHTBUTTON, $WS_TABSTOP, $BS_AUTOCHECKBOX))
+	GUICtrlSetResizing(-1, $left_dock)
 	if $ssl_ntlm_auth_flag = $ON then GUICtrlSetState(-1, $ON)
-	local $label_attachments = GUICtrlCreateLabel("Attachments: ", -193, $row_offset, $label_width, $control_height)
-	global $input_mail_attachments = GUICtrlCreateInput($attached_files, $label_width, -4, $input_width, $control_height)
+	local $label_attachments = GUICtrlCreateLabel($labels[10], $gap, $first_row + 10 * $row_offset, $label_width, $control_height)
+	GUICtrlSetResizing(-1, $left_dock)
+	global $input_mail_attachments = GUICtrlCreateInput($attached_files, $field_left, $first_row + 10 * $row_offset, $input_width, $control_height)
+	GUICtrlSetResizing(-1, $field_dock)
 	GUICtrlSetState(-1, $GUI_DROPACCEPTED)
 
-	global $xr = GUICtrlCreateCheckbox("ReSend on SMTP Failure: ", -$label_width, $row_offset, 140, $control_height, Bitor($BS_RIGHTBUTTON, $WS_TABSTOP, $BS_AUTOCHECKBOX))
+	local $resend_top = $first_row + 11 * $row_offset
+	global $xr = GUICtrlCreateCheckbox($resend_caption, $gap, $resend_top, $resend_width, $control_height, Bitor($BS_RIGHTBUTTON, $WS_TABSTOP, $BS_AUTOCHECKBOX))
+	GUICtrlSetResizing(-1, $left_dock)
 	if $resend_mail = $ON then GUICtrlSetState(-1, $ON)
-	global $xs = GUICtrlCreateLabel("Max Retries: ", 153, 4, 65, $control_height)
-	global $xt = GUICtrlCreateInput($resend_mail_max_retry, 62, -4, 30, $control_height, Bitor($WS_TABSTOP, $ES_NUMBER))
+	local $retries_left = $resend_width + 2 * $gap
+	global $xs = GUICtrlCreateLabel($retries_caption, $retries_left, $resend_top, $retries_width, $control_height)
+	GUICtrlSetResizing(-1, $left_dock)
+	global $xt = GUICtrlCreateInput($resend_mail_max_retry, $retries_left + $retries_width, $resend_top, $retry_input_width, $control_height, Bitor($WS_TABSTOP, $ES_NUMBER))
+	GUICtrlSetResizing(-1, $left_dock)
 
-	GUISetCoord(7, $gui_height - 27)
-
-	local $label_preset = GUICtrlCreateLabel("Mail Preset:", 0, 0, $label_width, $control_height)
-	$mail_preset_combo_id = GUICtrlCreateCombo("Mail Preset: ", $label_width, -4, $label_width, $control_height)
+	local $preset_top = $first_row + 12 * $row_offset
+	local $button_left = $gui_width - $button_width - $gap
+	local $label_preset = GUICtrlCreateLabel($labels[11], $gap, $preset_top, $label_width, $control_height)
+	GUICtrlSetResizing(-1, $left_dock)
+	$mail_preset_combo_id = GUICtrlCreateCombo("Mail Preset: ", $field_left, $preset_top, $button_left - $field_left - $gap)
+	GUICtrlSetResizing(-1, $field_dock)
 	local $preset_context_menu = GUICtrlCreateContextMenu($mail_preset_combo_id)
 	local $menu_delete_preset = GUICtrlCreateMenuItem("&Delete Current Preset", $preset_context_menu)
 
 	PopulateMailPresetCombo()
 
-	GUISetCoord($gui_width - 59, $gui_height - 27)
-	local $btn_test = GUICtrlCreateButton("&Test", 0, 0, 54, 22)
+	local $button_dock = $GUI_DOCKTOP + $GUI_DOCKRIGHT + $GUI_DOCKSIZE
+	local $btn_test = GUICtrlCreateButton("&Test", $button_left, $preset_top, $button_width, $control_height)
+	GUICtrlSetResizing(-1, $button_dock)
 	GUICtrlSetState(-1, $GUI_DISABLE + $GUI_HIDE)
-	GUISetCoord($gui_width - 59, $gui_height - 27)
-	local $btn_save = GUICtrlCreateButton("&Save", 0, 0, 54, 22, $BS_DEFPUSHBUTTON)
+	local $btn_save = GUICtrlCreateButton("&Save", $button_left, $preset_top, $button_width, $control_height, $BS_DEFPUSHBUTTON)
+	GUICtrlSetResizing(-1, $button_dock)
 
 	if $help_tips = $ON then
 
@@ -389,6 +457,7 @@ func ShowMailPreferencesDialog()
 		Sleep(33)
 	wend
 
+	UnregisterMinMax($gui_handle)
 	GUIDelete($gui_handle)
 	AutoItSetOption("GUIOnEventMode", $opt_gui_on_event)
 	AutoItSetOption("GUICoordMode", $opt_gui_coord)

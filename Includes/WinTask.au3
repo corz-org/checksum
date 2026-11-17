@@ -1,6 +1,6 @@
 #include-once
 
-; Task Scheduler functions for checksum.		v0.2.2
+; Task Scheduler functions for checksum.		v0.2.3
 ; (c) corz.org 2005->
 
 
@@ -12,7 +12,7 @@
 func CreateTaskMaster()
 
 	TraySetState(2)
-	local $user_name = InputBox(_T("Enter User Name"), _T("Run the Task under which user account?"), @UserName, "", 300, 130, default, default, 0)
+	local $user_name = ChecksumTextInput(_T("Enter User Name"), _T("Run the Task under which user account?"), @UserName, 300)
 
 	if not $user_name then
 		TraySetState(1)
@@ -22,7 +22,7 @@ func CreateTaskMaster()
 	$my_msg = _T("Enter a name for this task")
 	$full_text = _T("note: The name entered will OVERWRITE any existing tasks with the same name!\n\nAlso note, you can place the task in a subfolder using the format, 'folder\task-name'\n(by default, tasks are placed in a 'checksum' folder in your Task Scheduler)")
 
-	local $task_name = InputBox($my_msg, $my_msg & ": " & _L($full_text), _T("My checksum task"), "", 450, 200, default, default, 0)
+	local $task_name = ChecksumTextInput($my_msg, $my_msg & ": " & _L($full_text), _T("My checksum task"), 450)
 
 	if not $task_name then
 		TraySetState(1)
@@ -92,39 +92,65 @@ endfunc
 func CreateScheduledTask()
 
 	local $prev_on_event_mode = AutoItSetOption("GUIOnEventMode", 0)
-	local $prev_coord_mode = AutoItSetOption("GUICoordMode", 0)
-	local $gui_width = 400
-	local $gui_height = 105
+	local $prev_coord_mode = AutoItSetOption("GUICoordMode", 1)
+	local $text_scale = ChecksumDialogTextScale()
+	local $gui_handle = GUICreate(_T("On Which Days?"), 400, 105, -1, -1, -1, BitOR($WS_EX_TOPMOST, $WS_EX_WINDOWEDGE))
+	GUISetFont(9 * $text_scale, default, default, "Segoe UI", $gui_handle)
 
-	local $gui_handle = GUICreate(_T("On Which Days?"), $gui_width, $gui_height, -1, -1, -1, BitOR($WS_EX_TOPMOST, $WS_EX_WINDOWEDGE), 0)
-
-	GUICtrlCreateLabel(_T("Run the task on which days?"), 10, 10)
+	local $day_prompt = _T("Run the task on which days?")
+	local $time_prompt = _T("At what time? (in 24h format)")
+	local $hour_caption = _T("hour") & ":"
+	local $minute_caption = _T("minute") & ":"
+	local $all_caption = _T("all"), $cancel_caption = _T("Cancel"), $ok_caption = _T("OK")
 	local $day_names[7] = [_T("mon"), _T("tue"), _T("wed"), _T("thu"), _T("fri"), _T("sat"), _T("sun")]
-	local $day_checkboxes[7]
-
-	GUISetCoord(-30, 30)
-
-	for $idx = 0 to 6
-		$day_checkboxes[$idx] = GUICtrlCreateCheckbox($day_names[$idx], 40, 0, 38, 12)
-	next
-
-	local $btn_all = GUICtrlCreateButton(_T("all"), 43, -4, 38, 20)
+	local $day_checkboxes[7], $day_widths[7]
 	local $schedule_result[2]
 
-	GUISetCoord(10, 60)
+	local $measure = GUICtrlCreateLabel("", 0, 0, 1, 1)
+	local $line_height = FitLabelHeight($measure, "Ag", 100)
+	local $gap = Ceiling($line_height / 2)
+	local $row_height = $line_height + $gap
+	local $all_width = FitLabelWidth($measure, $all_caption, @DesktopWidth, 3 * $gap)
+	local $cancel_width = FitLabelWidth($measure, $cancel_caption, @DesktopWidth, 3 * $gap)
+	local $ok_width = FitLabelWidth($measure, $ok_caption, @DesktopWidth, 3 * $gap)
+	local $hour_width = FitLabelWidth($measure, $hour_caption, @DesktopWidth)
+	local $minute_width = FitLabelWidth($measure, $minute_caption, @DesktopWidth)
+	local $input_width = FitLabelWidth($measure, "00", @DesktopWidth, 3 * $gap)
+	local $days_width = $all_width + 2 * $gap
+	for $idx = 0 to UBound($day_names) - 1
+		$day_widths[$idx] = FitLabelWidth($measure, $day_names[$idx], @DesktopWidth, $row_height)
+		$days_width += $day_widths[$idx] + $gap
+	next
+	local $time_width = $hour_width + $minute_width + 2 * $input_width + 5 * $gap
+	local $prompt_width = _Max(FitLabelWidth($measure, $day_prompt, @DesktopWidth), FitLabelWidth($measure, $time_prompt, @DesktopWidth))
+	local $gui_width = _Max(_Max($days_width, $time_width), _Max($prompt_width + 2 * $gap, $cancel_width + $ok_width + 3 * $gap))
+	local $gui_height = 5 * $row_height + 4 * $gap
+	GUICtrlDelete($measure)
 
-	GUICtrlCreateLabel(_T("At what time? (in 24h format)"), 0, 0)
+	local $outer = WinGetPos($gui_handle), $client = WinGetClientSize($gui_handle)
+	WinMove($gui_handle, "", $outer[0] - Int(($gui_width - $client[0]) / 2), $outer[1] - Int(($gui_height - $client[1]) / 2), _
+		$gui_width + $outer[2] - $client[0], $gui_height + $outer[3] - $client[1])
+	GUICtrlCreateLabel($day_prompt, $gap, $gap, $gui_width - 2 * $gap, $row_height)
+	local $day_x = $gap, $days_top = $gap + $row_height
+	for $idx = 0 to UBound($day_names) - 1
+		$day_checkboxes[$idx] = GUICtrlCreateCheckbox($day_names[$idx], $day_x, $days_top, $day_widths[$idx], $row_height, default, $reading_direction)
+		$day_x += $day_widths[$idx] + $gap
+	next
+	local $btn_all = GUICtrlCreateButton($all_caption, $day_x, $days_top, $all_width, $row_height)
 
-	GUISetCoord(10, 80)
-
-	GUICtrlCreateLabel(_T("hour") & ":", 0, 0)
-	local $input_hour = GUICtrlCreateInput("00", 28, -3, 75, 20, BitOR($ES_LEFT, $ES_NUMBER), -1)
-	GUICtrlCreateLabel(_T("minute") & ":", 85, 3)
-	local $input_minute = GUICtrlCreateEdit("00", 38, -3, 75, 20, BitOR($ES_LEFT, $ES_NUMBER), -1)
-	GUISetCoord($gui_width - 100, $gui_height - 30)
-	local $btn_cancel = GUICtrlCreateButton(_T("Cancel"), 0, 0, 45, 25)
-	GUISetCoord($gui_width - 50, $gui_height - 30)
-	local $btn_ok = GUICtrlCreateButton(_T("OK"), 0, 0, 45, 25)
+	local $time_top = 2 * ($gap + $row_height)
+	GUICtrlCreateLabel($time_prompt, $gap, $time_top, $gui_width - 2 * $gap, $row_height)
+	local $fields_top = $time_top + $row_height
+	GUICtrlCreateLabel($hour_caption, $gap, $fields_top, $hour_width, $row_height)
+	local $input_hour = GUICtrlCreateInput("00", $hour_width + 2 * $gap, $fields_top, $input_width, $row_height, BitOR($ES_LEFT, $ES_NUMBER))
+	GUICtrlSetLimit(-1, 2)
+	local $minute_x = $hour_width + $input_width + 3 * $gap
+	GUICtrlCreateLabel($minute_caption, $minute_x, $fields_top, $minute_width, $row_height)
+	local $input_minute = GUICtrlCreateInput("00", $minute_x + $minute_width + $gap, $fields_top, $input_width, $row_height, BitOR($ES_LEFT, $ES_NUMBER))
+	GUICtrlSetLimit(-1, 2)
+	local $buttons_top = $gui_height - $row_height - $gap
+	local $btn_cancel = GUICtrlCreateButton($cancel_caption, $gui_width - $cancel_width - $ok_width - 2 * $gap, $buttons_top, $cancel_width, $row_height)
+	local $btn_ok = GUICtrlCreateButton($ok_caption, $gui_width - $ok_width - $gap, $buttons_top, $ok_width, $row_height)
 
 	GUISetState(@SW_SHOW, $gui_handle)
 
@@ -167,8 +193,6 @@ func CreateScheduledTask()
 
 		endswitch
 
-		if StringLen(GUICtrlRead($input_hour)) > 2 then GUICtrlSetData($input_hour, GUICtrlRead(StringRight($input_hour, 2)))
-		if StringLen(GUICtrlRead($input_minute)) > 2 then GUICtrlSetData($input_minute, GUICtrlRead(StringRight($input_minute, 2)))
 		if Number(GUICtrlRead($input_hour)) > 23 then GUICtrlSetData($input_hour, 23)
 		if Number(GUICtrlRead($input_hour)) < 0 then GUICtrlSetData($input_hour, 0)
 		if Number(GUICtrlRead($input_minute)) > 59 then GUICtrlSetData($input_minute, 59)
@@ -192,17 +216,28 @@ endfunc
 func ChooseTaskType()
 
 	local $prev_on_event_mode = AutoItSetOption("GUIOnEventMode", 0)
-	local $prev_coord_mode = AutoItSetOption("GUICoordMode", 0)
-	local $gui_width = 400
-	local $gui_height = 75
-
-	local $gui_handle = GUICreate($my_msg, $gui_width, $gui_height)
-	GUICtrlCreateLabel($my_msg, 10, 10)
-
-	GUISetCoord(10, 30)
-	local $btn_create = GUICtrlCreateButton(_T("Create Task"), 0, 0, ($gui_width / 2) - 20, 30)
-	GUISetCoord(($gui_width / 2) + 10, 30)
-	local $btn_verify = GUICtrlCreateButton(_T("Verify Task"), 0, 0, ($gui_width / 2) - 20, 30)
+	local $prev_coord_mode = AutoItSetOption("GUICoordMode", 1)
+	local $text_scale = ChecksumDialogTextScale()
+	local $gui_handle = GUICreate($my_msg, 400, 75)
+	GUISetFont(9 * $text_scale, default, default, "Segoe UI", $gui_handle)
+	local $create_caption = _T("Create Task"), $verify_caption = _T("Verify Task")
+	local $label = GUICtrlCreateLabel($my_msg, 0, 0, 1, 1, $text_alignment, $reading_direction)
+	local $line_height = FitLabelHeight($label, "Ag", 100)
+	local $gap = Ceiling($line_height / 2)
+	local $button_width = _Max(FitLabelWidth($label, $create_caption, @DesktopWidth), FitLabelWidth($label, $verify_caption, @DesktopWidth)) + 3 * $gap
+	local $button_height = $line_height + $gap
+	local $gui_width = _Max(2 * $button_width + 3 * $gap, Ceiling(400 * $text_scale))
+	local $label_width = $gui_width - 2 * $gap
+	local $label_height = FitLabelHeight($label, $my_msg, $label_width)
+	local $gui_height = $label_height + $button_height + 3 * $gap
+	local $outer = WinGetPos($gui_handle), $client = WinGetClientSize($gui_handle)
+	WinMove($gui_handle, "", $outer[0] - Int(($gui_width - $client[0]) / 2), $outer[1] - Int(($gui_height - $client[1]) / 2), _
+		$gui_width + $outer[2] - $client[0], $gui_height + $outer[3] - $client[1])
+	GUICtrlSetPos($label, $gap, $gap, $label_width, $label_height)
+	local $buttons_top = $label_height + 2 * $gap
+	$button_width = Int(($gui_width - 3 * $gap) / 2)
+	local $btn_create = GUICtrlCreateButton($create_caption, $gap, $buttons_top, $button_width, $button_height)
+	local $btn_verify = GUICtrlCreateButton($verify_caption, $gui_width - $gap - $button_width, $buttons_top, $button_width, $button_height)
 
 	GUISetState(@SW_SHOW, $gui_handle)
 

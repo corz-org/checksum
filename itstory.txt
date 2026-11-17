@@ -31,10 +31,27 @@
         exist /only/ here. Enjoy!
 
 
-    2.0.2.1 [current release]
-    
+
+    2.0.3.0
+
+    ~+  checksum now respects the Windows font magnification setting (Windows
+        accessibility text scaling).
+
+        This applies to *all* dialogs, one-shot options, scheduler, mail, etc..
+        Everything except the two "easter egg" system info dialogs you can get
+        to from the about box.
+
+
+
+    2.0.2.2 [current release]
+
+      ~ Some minor issues no one would notice!
+
+
+    2.0.2.1
+
     *   Fixed version info update check.
-    
+
 
     2.0.1.*
 
