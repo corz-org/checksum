@@ -712,6 +712,6 @@ Language Code Mapping
   vi = Vietnamese
   zh = Chinese (Simplified)
   
-  thl = Klingon
+  tlh = Klingon
 
 #ce

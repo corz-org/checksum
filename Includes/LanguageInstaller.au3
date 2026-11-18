@@ -1,6 +1,6 @@
 #include-once
 
-; LanguageInstaller.au3		v0.2.0
+; LanguageInstaller.au3		v0.2.1
 ; Install and setup languages for checksum.
 
 ; Functions for the language installation and initial one-time language
@@ -227,10 +227,12 @@ func GetUserLanguageSelection($languages_dir)
 	$selection_button_width = 40
 	$selection_button_height = 30
 
-	local $columns = 15
+	local const $reference_columns = 15, $width_reduction = 60, $extra_height = 12
+	local $column_width = $selection_button_width + $selection_spacing
+	local $window_width = $reference_columns * $column_width - $selection_spacing + 2 * $selection_margin - $width_reduction
+	local $columns = Floor(($window_width - 2 * $selection_margin + $selection_spacing) / $column_width)
 	local $rows = Ceiling($selection_language_count / $columns)
-	local $window_width = ($columns * ($selection_button_width + $selection_spacing)) - $selection_spacing + ($selection_margin * 2)
-	local $window_height = ($rows * ($selection_button_height + $selection_spacing)) - $selection_spacing + ($selection_margin * 2)
+	local $window_height = $rows * ($selection_button_height + $selection_spacing) - $selection_spacing + 2 * $selection_margin + $extra_height
 	local $window_style = BitOr($WS_CAPTION, $WS_SYSMENU, $WS_MINIMIZEBOX, $WS_MAXIMIZEBOX, $WS_SIZEBOX)
 
 	$GUI_language_selector = GUICreate(_B("Select your preferred language") & ".. ", $window_width, $window_height, -1, -1, $window_style)

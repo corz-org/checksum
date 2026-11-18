@@ -1,5 +1,5 @@
-#AutoIt3Wrapper_Res_Fileversion=2.0.3.0
-global const $VERSION = "2.0.3.0"
+#AutoIt3Wrapper_Res_Fileversion=2.0.4.2
+global const $VERSION = "2.0.4.2"
 
 ;
 ; checksum
@@ -336,7 +336,7 @@ global $show_edit_ini = INIArrayReadCheckBoxValue($ini_array, "show_edit_ini", $
 
 global $tooltip_progress, $group_algorithm, $group_behaviour, $do_audio_alerts
 global $line_feed = GetINIArrayValue($ini_array, "line_feed", "CRLF")
-; $LF set to @CRLF in cel.au3
+; $LF set to @CRLF in corzShared.au3
 if $line_feed = "LF" then $LF = @LF
 if $line_feed = "CR" then $LF = @CR
 
@@ -644,6 +644,7 @@ $tip_stretch = +(($tip_stretch / 100) * 3.33)
 global $pause = GetINIArrayValue($ini_array, "pause", 1000)
 global $opt_x = GetINIArrayValue($ini_array, "opt_x", -1)
 global $opt_y = GetINIArrayValue($ini_array, "opt_y", -1)
+global $one_shot_spacing = Int(GetINIArrayValue($ini_array, "one_shot_spacing", 3))
 global $gui_initial_position_x = $opt_x
 global $gui_initial_position_y = $opt_y
 global $tip_anchor_right = INIArrayReadCheckBoxValue($ini_array, "tip_anchor_right", $OFF)
@@ -3876,7 +3877,7 @@ func DoLogOutput($log_entry, $log_level=1, $status="", $checksum_file="", $idx="
 								local $hash_algo_tag = "(" & $entry_fields[3] & ")"
 								local $entry_folder_url = "file:///" & StringReplace(StringLeft($entry_fields[1], StringInStr($entry_fields[1], "\", 0, -1)), "\", "/")
 								if $entry_fields[2] = $hash_status_codes[1] & " " & _T("FILE") then $hash_algo_tag = ""
-								$html_data &= '<div class="result"><span class="checksum-' & $entry_fields[2] & '"><a href="' & $entry_folder_url & '">' & $entry_fields[1] & _
+								$html_data &= '<div class="result" style="display: flow-root"><span class="checksum-' & $entry_fields[2] & '"><a href="' & $entry_folder_url & '">' & $entry_fields[1] & _
 								"</a></span>" & '<span class="status ' & $entry_fields[2] & '">&nbsp;&nbsp;' & $hash_algo_tag & " " & $entry_fields[2] & "</span><br /></div>" & @LF
 						endif
 					next
@@ -4249,7 +4250,8 @@ func DoCreateOptions()
 	local $measure = GUICtrlCreateLabel("", 0, 0, 1, 1)
 	local $line_height = FitLabelHeight($measure, "Ag", 100)
 	local $gap = Ceiling($line_height / 2)
-	local $row_height = $line_height + Ceiling($gap / 3)
+	local $row_height = _Max($line_height - 3, $line_height + Round($one_shot_spacing * $text_scale))
+	local $input_height = _Max($row_height, $line_height + Ceiling($gap / 3))
 	local $caption_widths[UBound($captions)]
 	for $i = 0 to UBound($captions) - 1
 		$caption_widths[$i] = FitLabelWidth($measure, $captions[$i], @DesktopWidth)
@@ -4300,7 +4302,7 @@ func DoCreateOptions()
 		$path = GetLongParentDir($path)
 	endif
 
-	local $input_path = GUICtrlCreateInput(FormatPathForDisplay($path), $field_left, $gap, $base_gui_width - $field_left - $gap, $row_height)
+	local $input_path = GUICtrlCreateInput(FormatPathForDisplay($path), $field_left, $gap, $base_gui_width - $field_left - $gap, $input_height)
 	GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKRIGHT + $GUI_DOCKTOP + $GUI_DOCKHEIGHT)
 	GUICtrlSetState(-1, $GUI_DROPACCEPTED)
 
@@ -4384,7 +4386,7 @@ func DoCreateOptions()
 	local $checkbox_out_dir = CreateCheckbox($captions[18], $output_left + $gap, $first_row + 5 * $row_height, $caption_widths[18] + $checkbox_padding, $row_height)
 	GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKSIZE)
 	if $out_dir then GUICtrlSetState(-1, $ON)
-	local $input_out_dir = GUICtrlCreateInput($out_dir, $output_left + $gap, $first_row + 6 * $row_height, $output_width - 2 * $gap, $row_height)
+	local $input_out_dir = GUICtrlCreateInput($out_dir, $output_left + $gap, $first_row + 6 * $row_height, $output_width - 2 * $gap, $input_height)
 	GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKSIZE)
 	GUICtrlSetData(-1, $out_dir)
 	if GUICtrlRead($checkbox_out_dir) = $OFF then GUICtrlSetState(-1, $GUI_HIDE)
@@ -4396,14 +4398,19 @@ func DoCreateOptions()
 	local $combo_algo = GUICtrlCreateCombo("", $commands_left + $gap, $first_row, $commands_width - 2 * $gap, default, $CBS_DROPDOWNLIST)
 	GUICtrlSetResizing(-1, $command_dock)
 	GUICtrlSetData(-1, AlgoComboList(), $algorithm_strings[AlgoIDFromSwitches()])
+	local $combo_rect = ControlGetPos($GUI_Options, "", $combo_algo)
+	if IsArray($combo_rect) then
+		local $algorithm_height = $combo_rect[1] - $groups_top + $combo_rect[3] + $gap
+		GUICtrlSetPos($group_algorithm, $commands_left, $groups_top, $commands_width, _Max(2 * $row_height + $gap, $algorithm_height))
+	endif
 
-	local $switches_top = $groups_top + 4 * $row_height
+	local $switches_top = $groups_top + 4 * $row_height - 8
 	local $group_switches = GUICtrlCreateGroup($captions[20], $commands_left, $switches_top, $commands_width, 2 * $row_height + $gap)
 	GUICtrlSetResizing(-1, $command_dock)
-	local $input_switches = GUICtrlCreateInput($switches, $commands_left + $gap, $switches_top + $row_height, $commands_width - 2 * $gap, $row_height)
+	local $input_switches = GUICtrlCreateInput($switches, $commands_left + $gap, $switches_top + $row_height, $commands_width - 2 * $gap, $input_height)
 	GUICtrlSetResizing(-1, $command_dock)
 
-	local $button_run = GUICtrlCreateButton("&" & $captions[21], $commands_left, $base_gui_height - $row_height - $gap, $commands_width, $row_height, $BS_DEFPUSHBUTTON, $reading_direction)
+	local $button_run = GUICtrlCreateButton("&" & $captions[21], $commands_left, $base_gui_height - 2 * $row_height - $gap, $commands_width, 2 * $row_height, BitOr($BS_DEFPUSHBUTTON, $BS_VCENTER), $reading_direction)
 	GUICtrlSetResizing(-1, $command_dock)
 	AutoItSetOption("GUICoordMode", $old_coord_mode)
 
@@ -4469,6 +4476,8 @@ func DoCreateOptions()
 		$options_min_width = $standard_gui_width + $options_frame_width
 		$options_min_height = $options_min_size[3]
 	endif
+	RegisterMinMax($GUI_Options, $options_min_width, $options_min_height, $options_min_height)
+	GUIRegisterMsg($WM_EXITSIZEMOVE, "SaveOptionsPositionOnMove")
 
 	local $gui_msg
 	while not $user_quit
@@ -4479,12 +4488,13 @@ func DoCreateOptions()
 		switch $gui_msg
 
 			case $GUI_EVENT_RESIZED
-				EnforceOptionsMinSize($options_min_width, $options_min_height)
+				EnforceOptionsSize($options_min_width, $options_min_height)
 				MaybeSaveOptionsWidth("create_options_width", $options_min_width, $options_frame_width, $options_saved_width)
 
 			case $GUI_EVENT_CLOSE
 				AutoItSetOption("GUIOnEventMode", $old_gui_mode)
 				GUISetState(@SW_HIDE, $GUI_Options)
+				UnregisterMinMax($GUI_Options)
 				GUIDelete($GUI_Options)
 				Sleep(25)
 				CheckVersionAndExit(-9)
@@ -4884,6 +4894,7 @@ func DoCreateOptions()
 
 				SaveWinPosition()
 				AutoItSetOption("GUIOnEventMode", $old_gui_mode)
+				UnregisterMinMax($GUI_Options)
 				GUIDelete($GUI_Options)
 				return 1
 
@@ -4891,6 +4902,7 @@ func DoCreateOptions()
 	wend
 
 	AutoItSetOption("GUIOnEventMode", $old_gui_mode)
+	UnregisterMinMax($GUI_Options)
 	GUIDelete($GUI_Options)
 
 endfunc
@@ -4925,7 +4937,8 @@ func DoVerifyOptions()
 	local $measure = GUICtrlCreateLabel("", 0, 0, 1, 1)
 	local $line_height = FitLabelHeight($measure, "Ag", 100)
 	local $gap = Ceiling($line_height / 2)
-	local $row_height = $line_height + Ceiling($gap / 3)
+	local $row_height = _Max($line_height - 3, $line_height + Round($one_shot_spacing * $text_scale))
+	local $input_height = _Max($row_height, $line_height + Ceiling($gap / 3))
 	local $toggle_padding = $line_height + $gap
 	local $caption_widths[UBound($captions)]
 	for $i = 0 to UBound($captions) - 1
@@ -4950,7 +4963,8 @@ func DoVerifyOptions()
 	GUICtrlDelete($measure)
 
 	local $field_left = $caption_widths[0] + 2 * $gap
-	local $groups_top = $row_height + 3 * $gap
+	local $path_gap = _Min(2 * $gap, _Max(2, $gap + Round($one_shot_spacing * $text_scale)))
+	local $groups_top = $gap + $input_height + $path_gap
 	local $first_row = $groups_top + $row_height
 	local $groups_height = 8 * $row_height + $gap
 	local $standard_gui_width = _Max($field_left + 12 * $line_height, $logging_width + $behaviour_width + $commands_width + 4 * $gap)
@@ -4971,7 +4985,7 @@ func DoVerifyOptions()
 
 	local $label_path = GUICtrlCreateLabel($captions[0], $gap, $gap, $field_left - $gap, $row_height)
 	GUICtrlSetResizing(-1, $left_dock)
-	local $input_path = GUICtrlCreateInput(FormatPathForDisplay($path), $field_left, $gap, $base_gui_width - $field_left - $gap, $row_height)
+	local $input_path = GUICtrlCreateInput(FormatPathForDisplay($path), $field_left, $gap, $base_gui_width - $field_left - $gap, $input_height)
 	GUICtrlSetState(-1, $GUI_DROPACCEPTED)
 	GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKRIGHT + $GUI_DOCKTOP + $GUI_DOCKHEIGHT)
 
@@ -5003,7 +5017,7 @@ func DoVerifyOptions()
 	GUICtrlSetResizing(-1, $left_dock)
 	if StringInStr($switches, "z") then GUICtrlSetState(-1, $ON)
 
-	GUICtrlCreateGroup($captions[15], $commands_left, $groups_top, $commands_width, 2 * $row_height + $gap, BitOr($WS_GROUP, $BS_GROUPBOX))
+	local $algorithm_group = GUICtrlCreateGroup($captions[15], $commands_left, $groups_top, $commands_width, 2 * $row_height + $gap, BitOr($WS_GROUP, $BS_GROUPBOX))
 	GUICtrlSetResizing(-1, $right_dock)
 	local $combo_alg_filter = GUICtrlCreateCombo("", $commands_left + $gap, $first_row, $commands_width - 2 * $gap, default, $CBS_DROPDOWNLIST)
 	GUICtrlSetResizing(-1, $right_dock)
@@ -5012,6 +5026,11 @@ func DoVerifyOptions()
 		if StringInStr($switches, "a" & $algo_switch_letters[$i]) then $verify_default = $algorithm_strings[$i]
 	next
 	GUICtrlSetData(-1, $captions[16] & "|" & AlgoComboList(), $verify_default)
+	local $combo_rect = ControlGetPos($GUI_Options, "", $combo_alg_filter)
+	if IsArray($combo_rect) then
+		local $algorithm_height = $combo_rect[1] - $groups_top + $combo_rect[3] + $gap
+		GUICtrlSetPos($algorithm_group, $commands_left, $groups_top, $commands_width, _Max(2 * $row_height + $gap, $algorithm_height))
+	endif
 
 	GUICtrlCreateGroup($captions[1], $gap, $groups_top, $logging_width, $groups_height)
 	GUICtrlSetResizing(-1, $left_dock)
@@ -5039,19 +5058,17 @@ func DoVerifyOptions()
 	GUICtrlSetResizing(-1, $left_dock)
 	if StringInStr($switches, "f") then GUICtrlSetState(-1, $ON)
 	local $log_field_width = $logging_width - 2 * $gap
-	local $input_log_folder = GUICtrlCreateInput($log_folder, 2 * $gap, $first_row + 6 * $row_height, $log_field_width, $row_height)
+	local $input_log_folder = GUICtrlCreateInput($log_folder, 2 * $gap, $first_row + 6 * $row_height, $log_field_width, $input_height)
 	GUICtrlSetResizing(-1, $left_dock)
 	GUICtrlSetData(-1, $log_folder)
 	if GUICtrlRead($checkbox_log_to_file) = $OFF then GUICtrlSetState(-1, $GUI_HIDE)
 
-	local $search_top = $groups_top + 4 * $row_height
-	GUICtrlCreateGroup("", $commands_left, $search_top, $commands_width, $row_height + 2 * $gap)
-	GUICtrlSetResizing(-1, $right_dock)
-	local $checkbox_search_verify = CreateCheckbox($captions[17], $commands_left + $gap, $search_top + $gap, $caption_widths[17] + $toggle_padding, $row_height)
+	local $search_top = $groups_top + 4 * $row_height + 2 * $gap
+	local $checkbox_search_verify = CreateCheckbox($captions[17], $commands_left, $search_top, $caption_widths[17] + $toggle_padding, $row_height)
 	GUICtrlSetResizing(-1, $right_dock)
 	if StringInStr($switches, "i") then GUICtrlSetState(-1, $ON)
 
-	local $button_run = GUICtrlCreateButton("&" & $captions[18], $commands_left, $base_gui_height - $row_height - $gap, $commands_width, $row_height, $BS_DEFPUSHBUTTON, $reading_direction)
+	local $button_run = GUICtrlCreateButton("&" & $captions[18], $commands_left, $base_gui_height - 2 * $row_height - $gap, $commands_width, 2 * $row_height, BitOr($BS_DEFPUSHBUTTON, $BS_VCENTER), $reading_direction)
 	GUICtrlSetResizing(-1, $right_dock)
 	AutoItSetOption("GUICoordMode", $old_coord_mode)
 
@@ -5112,6 +5129,8 @@ func DoVerifyOptions()
 		$options_min_width = $standard_gui_width + $options_frame_width
 		$options_min_height = $options_min_size[3]
 	endif
+	RegisterMinMax($GUI_Options, $options_min_width, $options_min_height, $options_min_height)
+	GUIRegisterMsg($WM_EXITSIZEMOVE, "SaveOptionsPositionOnMove")
 
 	local $gui_msg, $last_hover_ctrl
 	while not $user_quit
@@ -5134,12 +5153,13 @@ func DoVerifyOptions()
 		switch $gui_msg
 
 			case $GUI_EVENT_RESIZED
-				EnforceOptionsMinSize($options_min_width, $options_min_height)
+				EnforceOptionsSize($options_min_width, $options_min_height)
 				MaybeSaveOptionsWidth("verify_options_width", $options_min_width, $options_frame_width, $options_saved_width)
 
 			case $GUI_EVENT_CLOSE
 				AutoItSetOption("GUIOnEventMode", $old_gui_mode)
 				GUISetState(@SW_HIDE, $GUI_Options)
+				UnregisterMinMax($GUI_Options)
 				GUIDelete($GUI_Options)
 				Sleep(25)
 				CheckVersionAndExit(-9)
@@ -5247,6 +5267,7 @@ func DoVerifyOptions()
 				SaveWinPosition()
 
 				AutoItSetOption("GUIOnEventMode", $old_gui_mode)
+				UnregisterMinMax($GUI_Options)
 				GUIDelete($GUI_Options)
 				return 1
 
@@ -5255,21 +5276,21 @@ func DoVerifyOptions()
 	wend
 
 	AutoItSetOption("GUIOnEventMode", $old_gui_mode)
+	UnregisterMinMax($GUI_Options)
 	GUIDelete($GUI_Options)
 
 endfunc
 
 ;						cro b:\
 
-; Snaps an options dialog back to its creation size if the user resizes it too small.
+; Keeps the options dialog at its layout height and enforces its minimum width.
 ; Minima come from a WinGetPos() snapshot taken just after GUISetState(), never hardcoded.
-func EnforceOptionsMinSize($min_width, $min_height)
+func EnforceOptionsSize($min_width, $min_height)
 	local $win_pos = WinGetPos($GUI_Options)
 	if not IsArray($win_pos) then return
 	local $new_width = $win_pos[2]
-	local $new_height = $win_pos[3]
+	local $new_height = $min_height
 	if $new_width < $min_width then $new_width = $min_width
-	if $new_height < $min_height then $new_height = $min_height
 	if $new_width <> $win_pos[2] or $new_height <> $win_pos[3] then WinMove($GUI_Options, "", default, default, $new_width, $new_height)
 endfunc
 
@@ -5567,10 +5588,6 @@ func SnapTip($init=false)
 
 	debug("SnapTip($init =" & $init & ") 					--->", @ScriptLineNumber, 5)
 
-	if $init and $tip_anchor_right = $ON then
-		WinMove($GUI_ToolTip, "", @DesktopWidth, default)
-	endif
-
 	if WinExists($GUI_ToolTip) then
 		local $win_pos = WinGetPos($GUI_ToolTip)
 		if not IsArray($win_pos) then return 0
@@ -5578,6 +5595,8 @@ func SnapTip($init=false)
 		return 0
 	endif
 
+	local $area = UserDialogWorkArea($win_pos)
+	local $restore_right = $init and $tip_anchor_right = $ON
 	local $x = $win_pos[0]
 	local $y = $win_pos[1]
 	local $w = $win_pos[2]
@@ -5585,18 +5604,15 @@ func SnapTip($init=false)
 
 	$tip_anchor_right = $OFF
 
-	if $x < $tip_snap then
-		$x = 0
-		$tip_anchor_right = $OFF
-	endif
+	if $x < $area[0] + $tip_snap then $x = $area[0]
 
-	if $x > @DesktopWidth - $w - $tip_snap then
-		$x = @DesktopWidth - $w
+	if $restore_right or $x > $area[2] - $w - $tip_snap then
+		$x = $area[2] - $w
 		$tip_anchor_right = $ON
 	endif
 
-	if $y < $tip_snap then $y = 0
-	if $y > @DesktopHeight - $h - $tip_snap then $y = @DesktopHeight - $h
+	if $y < $area[1] + $tip_snap then $y = $area[1]
+	if $y > $area[3] - $h - $tip_snap then $y = $area[3] - $h
 
 	WinMove($GUI_ToolTip, "", $x, $y)
 
@@ -6502,6 +6518,16 @@ endfunc
 ; DeTokenize()
 
 ; Replaces @tokens.
+; Saves one-shot dialog coordinates when the user finishes moving or resizing.
+; Reads the active options handle and ignores messages from other windows.
+; Returns GUI_RUNDEFMSG so Windows continues its normal message processing.
+func SaveOptionsPositionOnMove($hwnd, $msg, $w_param, $l_param)
+	#forceref $msg, $w_param, $l_param
+	if $hwnd = $GUI_Options then SaveWinPosition()
+	return $GUI_RUNDEFMSG
+endfunc
+
+
 ;
 func DeTokenize($string, $original_item, $string_type)
 
@@ -6671,6 +6697,10 @@ func SaveWinPosition()
 	if IsArray($winpos_data) then
 		if $gui_initial_position_x <> $winpos_data[0] then IniWrite($ini_path, $app_name, "opt_x", $winpos_data[0])
 		if $gui_initial_position_y <> $winpos_data[1] then IniWrite($ini_path, $app_name, "opt_y", $winpos_data[1])
+		$opt_x = $winpos_data[0]
+		$opt_y = $winpos_data[1]
+		$gui_initial_position_x = $opt_x
+		$gui_initial_position_y = $opt_y
 
 	endif
 endfunc
@@ -7373,7 +7403,7 @@ endfunc
 
 ; Enable both directives for a GitHub source publish.
 ;#AutoIt3Wrapper_Run_After_Admin=N
-;#AutoIt3Wrapper_Run_After="C:\UNIX\Python312\python.exe" "C:\Users\Dad\Documents\Scripts\publish-autoit-source.py" "%scriptdir%" checksum "%fileversion%"
+;#AutoIt3Wrapper_Run_After="C:\UNIX\Python312\python.exe" "C:\Users\Dad\Documents\Scripts\Python\publish-autoit-source.py" "%scriptdir%" checksum "%fileversion%"
 #endRegion -----  END  --------------- COMPILE / WRAPPER DIRECTIVES ------------
 
 #cs

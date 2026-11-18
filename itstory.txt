@@ -8,13 +8,13 @@
                                                                      ####
 
   checksum
-  A no-nonsense hashing utility for windows..
+  A no-nonsense hashing utility for windows.
 
   https://corz.org/windows/software/checksum/
 
   (c) corz.org  2005->
 
-  itstory.. aka 'version history'.. aka 'changes'..
+  itstory.. aka 'version history', aka 'changes'.
   [known bugs at the bottom]
 
 
@@ -32,6 +32,34 @@
 
 
 
+    2.0.4.2
+
+    * Fixed backwards indentation in certain foreign language logs.
+
+    + Added configurable line-height spacing for the one-shot dialogs, if you
+      want to recreate that old-school "tight" dialog, or the opposite.
+
+      It's in the ini as one_shot_spacing=3 <-- the default. You can go as high
+      as you like, and down to -3, which is way too tight! 0 will get you "old
+      checksum" spacing. I prefer things more spaced out, these days.
+
+    * Fixed the overlapping options/dialogs for new users.
+
+    ~ Choosing "Abort Queue" from the tray while a one-shot options dialog is
+      open simply kills the dialog. This is part of the above fix, also.
+
+    * Fixed the "This is a one-time notice" about opening the one-shot dialog
+      one-time as a demo if your first action is to *upgrade* hashes, where this
+      does not apply. That dialog will wait for a new user to actually perform
+      some create/verify action before popping up (ONE TIME ONLY, so read!).
+
+    ~ Position of one-shot dialogs is remembered as soon as you move them, even
+      if you cancel; the next time it opens, it will open where you moved it to.
+
+      Previously, you needed to actually do something for this to be remembered.
+
+
+
     2.0.3.0
 
     ~+  checksum now respects the Windows font magnification setting (Windows
@@ -40,7 +68,6 @@
         This applies to *all* dialogs, one-shot options, scheduler, mail, etc..
         Everything except the two "easter egg" system info dialogs you can get
         to from the about box.
-
 
 
     2.0.2.2
